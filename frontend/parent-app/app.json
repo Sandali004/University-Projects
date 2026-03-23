@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "parent-app",
+    "slug": "parent-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE"
+      }
+    },
+    "web": {
+      "favicon": ""
+    }
+  }
+}

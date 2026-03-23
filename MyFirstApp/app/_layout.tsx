@@ -18,6 +18,46 @@ export default function RootLayout() {
         }} 
       />
       
+      {/* Driver Login Screen */}
+      <Stack.Screen 
+        name="login" 
+        options={{ 
+          title: 'Driver Login',
+          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerShadowVisible: false,
+        }} 
+      />
+
+      {/* Parent Login Screen */}
+      <Stack.Screen 
+        name="parent-login" 
+        options={{ 
+          title: 'Parent Login',
+          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerShadowVisible: false,
+        }} 
+      />
+
+      {/* Attendant Login Screen */}
+      <Stack.Screen 
+        name="attendant-login" 
+        options={{ 
+          title: 'Attendant Login',
+          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerShadowVisible: false,
+        }} 
+      />
+      
+      {/* Simple Map Screen */}
+      <Stack.Screen 
+        name="map" 
+        options={{ 
+          title: 'Vehicle Tracker',
+          headerStyle: { backgroundColor: '#3B82F6' }, // Blue header for Map
+          headerTintColor: '#fff',
+        }} 
+      />
+      
       {/* Registration Selection Screen */}
       <Stack.Screen 
         name="registration" 

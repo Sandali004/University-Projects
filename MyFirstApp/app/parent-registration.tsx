@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import api from '../services/api';
 
 // Parent specific questions
 const questions = [
@@ -44,22 +45,28 @@ export default function ParentRegistration() {
 
     if (currentStep < questions.length - 1) {
       setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
+        setMessages((prev: any[]) => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
         setCurrentStep(currentStep + 1);
       }, 500);
     } else {
       setIsFinished(true);
       setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'All done! Please submit your registration below.' }]);
+        setMessages((prev: any[]) => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'All done! Please submit your registration below.' }]);
       }, 500);
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Submitting Parent Registration:", formData);
-    Alert.alert('Success', 'Parent Registration Complete!', [
-      { text: 'OK', onPress: () => router.push('/') }
-    ]);
+  const handleSubmit = async () => {
+    try {
+      console.log("Submitting Parent Registration:", formData);
+      await api.post('/parent/register', formData);
+      Alert.alert('Success', 'Parent Registration Complete!', [
+        { text: 'OK', onPress: () => router.push('/parent-login') } // Route directly to their portal
+      ]);
+    } catch (error: any) {
+      console.log("Parent Registration Error:", error.response?.data || error.message);
+      Alert.alert('Registration Failed', error.response?.data?.message || error.message);
+    }
   };
 
   const currentQ = questions[currentStep];

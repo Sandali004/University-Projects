@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import api from '../services/api';
 
 // Attendant specific questions
 const questions = [
@@ -42,22 +43,28 @@ export default function AttendantRegistration() {
 
     if (currentStep < questions.length - 1) {
       setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
+        setMessages((prev: any[]) => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
         setCurrentStep(currentStep + 1);
       }, 500);
     } else {
       setIsFinished(true);
       setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'All done! Please submit your registration below.' }]);
+        setMessages((prev: any[]) => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'All done! Please submit your registration below.' }]);
       }, 500);
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Submitting Attendant Registration:", formData);
-    Alert.alert('Success', 'Attendant Registration Complete!', [
-      { text: 'OK', onPress: () => router.push('/') }
-    ]);
+  const handleSubmit = async () => {
+    try {
+      console.log("Submitting Attendant Registration:", formData);
+      await api.post('/attendant/register', formData);
+      Alert.alert('Success', 'Attendant Registration Complete!', [
+        { text: 'OK', onPress: () => router.push('/attendant-login') }
+      ]);
+    } catch (error: any) {
+      console.log("Attendant Registration Error:", error.response?.data || error.message);
+      Alert.alert('Registration Failed', error.response?.data?.message || error.message);
+    }
   };
 
   const currentQ = questions[currentStep];

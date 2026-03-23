@@ -13,7 +13,9 @@ const driverSchema = new mongoose.Schema({
   vehicleType: { type: String, enum: ["Car", "Van", "Bus"], required: true }, // Only allows Car, Van, or Bus
   vehicleNumber: { type: String, required: true, unique: true }, // Unique vehicle registration
   seatCount: { type: Number, required: true }, // Number of passenger seats
-  route: { type: String, required: true } // The driver's primary route
+  route: { type: String, required: true }, // The driver's primary route
+  emergencyContact: { type: String, required: true }, // Provided explicitly by the chatbot
+  role: { type: String, default: 'Driver' } // Differentiator when decoding later
 }, { timestamps: true }); // Automatically adds createdAt and updatedAt fields to track when data was stored
 
 // Create the model from the schema

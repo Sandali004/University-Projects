@@ -1,14 +1,14 @@
-// Import necessary modules from React and React Native
+// Import React and UI Components
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router'; // Used for screen navigation
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Safe local storage
-import api from '../services/api'; // Our custom Axios API client
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../services/api';
 
-// Screen Component: Driver Login
-export default function LoginScreen() {
-  // State variables: hold the email, password, and loading status
-  const [email, setEmail] = useState('');
+// Screen Component: Parent Login
+export default function ParentLoginScreen() {
+  // State variables: hold the email/username, password, and loading status
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false); // Controls the spinning loader
   const router = useRouter(); // Route navigator
@@ -16,46 +16,42 @@ export default function LoginScreen() {
   // Event handler for when the login button is pressed
   const handleLogin = async () => {
     // 1. Validation: ensure fields are not empty
-    if (!email || !password) {
-      Alert.alert('Error', 'Please enter both email and password.');
+    if (!identifier || !password) {
+      Alert.alert('Error', 'Please enter your login details.');
       return;
     }
     
     setLoading(true); // Start loading spinner
     
     try {
-      // 2. Make an API call to the backend login route properly referencing 'input' matching the email OR username pattern
-      const response = await api.post('/driver/login', { input: email, password });
+      // 2. Make an API call to the backend login route
+      const response = await api.post('/parent/login', { input: identifier, password });
       
-      // 3. If login is successful, the server returns a token
       if (response.data.token) {
-        // Save the authentication token and driver profile data locally
-        await AsyncStorage.setItem('driverToken', response.data.token);
-        await AsyncStorage.setItem('driverData', JSON.stringify(response.data.driver));
+        await AsyncStorage.setItem('parentToken', response.data.token);
+        await AsyncStorage.setItem('parentData', JSON.stringify(response.data.parent));
         
-        // 4. Navigate directly to the simple Map screen and pass the role parameter
-        router.replace({ pathname: '/map', params: { role: 'Driver' } });
+        // 3. If login is successful, navigate to the MapScreen passing the Parent role
+        router.replace({ pathname: '/map', params: { role: 'Parent' } });
       }
     } catch (error: any) {
-      // Handle login failures (e.g., wrong password, wrong email)
       console.log(error.response?.data || error.message);
-      
+
       // If the backend isn't reachable (Network Error or Timeout), auto-approve as a Mock Success for developmental continuity
       if (!error.response || error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
          console.log("Backend offline or timed out. Falling back to MOCK SUCCESS routing.");
          Alert.alert('Mock Success (Server Offline)', 'The Node.js backend timed out, but we are letting you in to test the Map!', [
            { text: 'OK', onPress: () => {
                setLoading(false);
-               router.replace({ pathname: '/map', params: { role: 'Driver' } });
+               router.replace({ pathname: '/map', params: { role: 'Parent' } });
              } 
            } 
          ]);
          return; 
       }
 
-      Alert.alert('Login Failed', error.response?.data?.message || 'Something went wrong.');
+      Alert.alert('Login Failed', error.response?.data?.message || 'Invalid email/username or password');
     } finally {
-      // Stop loading spinner regardless of success or failure
       setLoading(false);
     }
   };
@@ -65,8 +61,8 @@ export default function LoginScreen() {
     <View style={styles.container}>
       {/* Header section with titles */}
       <View style={styles.header}>
-        <Text style={styles.title}>Welcome Back</Text>
-        <Text style={styles.subtitle}>Log in to manage your vehicle and routes</Text>
+        <Text style={styles.title}>Parent Portal</Text>
+        <Text style={styles.subtitle}>Log in to track your child's vehicle</Text>
       </View>
 
       {/* Form section containing inputs and buttons */}
@@ -77,10 +73,10 @@ export default function LoginScreen() {
           style={styles.input}
           placeholder="Enter email or username"
           placeholderTextColor="#94A3B8" // Light gray color
-          value={email}
-          onChangeText={setEmail}
+          value={identifier}
+          onChangeText={setIdentifier}
           keyboardType="default"
-          autoCapitalize="none" // Keeps text lowercase natively where applicable
+          autoCapitalize="none" // Standard for emails so it doesn't auto-capitalize
         />
         
         {/* Password Input */}
@@ -90,7 +86,7 @@ export default function LoginScreen() {
           placeholderTextColor="#94A3B8" // Light gray color
           value={password}
           onChangeText={setPassword}
-          secureTextEntry={true} // Hides the password characters 
+          secureTextEntry={true} // Hides the password characters for security
         />
         
         {/* Login Submit Button */}

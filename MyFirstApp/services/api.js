@@ -9,6 +9,7 @@ const API_URL = 'http://192.168.1.100:5000/api';
 // Create an Axios instance: a customized HTTP client with our base settings
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 5000, // Abort the request if the backend doesn't explicitly respond in 5 seconds
 });
 
 // Axios Request Interceptor

@@ -15,13 +15,13 @@ export default function WelcomeScreen() {
   };
 
   const handleParentPress = () => {
-    console.log("Parent pressed");
-    // Placeholder: Connect to a Parent Login screen in the future
+    // Navigate straight to the parent login screen
+    router.push('/parent-login'); 
   };
 
   const handleAttendantPress = () => {
-    console.log("Attendant pressed");
-    // Placeholder: Connect to an Attendant Login screen in the future
+    // Navigate straight to the attendant login screen
+    router.push('/attendant-login');
   };
 
   const handleRegistrationPress = () => {

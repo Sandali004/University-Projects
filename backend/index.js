@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import cors from "cors";
-
 import express from "express";
+
+import driverRoutes from "./routes/driverRoutes.js";
+import locationRoutes from "./routes/locationRoutes.js";
 
 const app = express();
 
@@ -19,6 +21,9 @@ mongoose
 
 app.use(express.json());
 app.use(cors());
+
+app.use("/api/driver", driverRoutes);
+app.use("/api/location", locationRoutes);
 
 app.listen(5000, () => {
   console.log("Server is running on port 5000");

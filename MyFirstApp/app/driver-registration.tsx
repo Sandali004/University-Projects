@@ -13,7 +13,6 @@ interface Question {
 
 const questions: Question[] = [
   { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Driver. What is your full name?' },
-  { id: 'username', type: 'text', text: 'Please choose a unique username for logging in.' },
   { id: 'phone', type: 'phone', text: 'Great. What is your phone number?' },
   { id: 'email', type: 'email', text: 'What is your email address?' },
   { id: 'password', type: 'password', text: 'Please enter a secure password.' },

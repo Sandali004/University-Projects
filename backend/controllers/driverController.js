@@ -69,17 +69,18 @@ export const registerDriver = async (req, res) => {
 // Function: Login an existing driver
 export const loginDriver = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, input, password } = req.body;
+    const identifier = email || input;
     
-    if (!email || !password) {
-      return res.status(400).json({ message: "Invalid credentials." });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: "Email and password are required." });
     }
 
     // 1. Fetch user from Supabase
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
+      .eq('email', identifier)
       .single();
 
     if (error || !user) {

@@ -24,8 +24,8 @@ export default function LoginScreen() {
     setLoading(true); // Start loading spinner
     
     try {
-      // 2. Make an API call to the backend login route properly referencing 'input' matching the email OR username pattern
-      const response = await api.post('/driver/login', { input: email, password });
+      // 2. Make an API call to the backend login route
+      const response = await api.post('/driver/login', { email, password });
       
       // 3. If login is successful, the server returns a token
       if (response.data.token) {
@@ -75,7 +75,7 @@ export default function LoginScreen() {
         {/* Email/Username Input */}
         <TextInput
           style={styles.input}
-          placeholder="Enter email or username"
+          placeholder="Enter email"
           placeholderTextColor="#94A3B8" // Light gray color
           value={email}
           onChangeText={setEmail}

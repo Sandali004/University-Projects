@@ -6,45 +6,75 @@ export const registerParent = async (req, res) => {
   try {
     const { name, email, password, childName, role = 'parent' } = req.body;
 
-    if (!name || !email || !password || !childName) {
-      return res.status(400).json({ message: "Missing required registration parameters." });
+    // 1. Structural Validation
+    const errors = [];
+    if (!name || name.trim().length < 2) errors.push("Full name is required (at least 2 characters).");
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.");
+    if (!password || password.length < 6) errors.push("Password must be at least 6 characters long.");
+    if (!childName || childName.trim().length < 2) errors.push("Child's full name is required.");
+
+    if (errors.length > 0) {
+      return res.status(400).json({ 
+        message: "Registration failed due to invalid parameters.", 
+        errors,
+        validParameters: {
+          name: "Text (min 2 chars)",
+          email: "Valid email format",
+          password: "Text (min 6 chars)",
+          childName: "Text (min 2 chars)"
+        }
+      });
     }
 
+    // 2. Hash the password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    // 3. Insert into users table
     const { data: userData, error: userError } = await supabase
       .from('users')
       .insert([{ name, email, password_hash: passwordHash, role }])
       .select()
       .single();
 
-    if (userError) throw userError;
+    if (userError) {
+      if (userError.code === '23505') {
+        return res.status(409).json({ message: "This email address is already registered." });
+      }
+      throw userError;
+    }
 
+    // 4. Insert into students table
     const { error: studentError } = await supabase
       .from('students')
       .insert([{ name: childName, parent_id: userData.id }]);
 
-    if (studentError) throw studentError;
+    if (studentError) {
+      // Cleanup created user if student creation fails
+      await supabase.from('users').delete().eq('id', userData.id);
+      throw studentError;
+    }
 
     res.status(201).json({ message: "Parent registered successfully.", user: userData });
   } catch (error) {
-    res.status(500).json({ message: "Error registering parent", error: error.message });
+    console.error("Registration Error:", error);
+    res.status(500).json({ message: "An internal server error occurred during registration.", error: error.message });
   }
 };
 
 export const loginParent = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, input, password } = req.body;
+    const identifier = email || input;
     
-    if (!email || !password) {
-      return res.status(400).json({ message: "Invalid credentials." });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: "Email and password are required." });
     }
 
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
+      .eq('email', identifier)
       .single();
 
     if (error || !user) {

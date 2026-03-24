@@ -19,7 +19,7 @@ export default function AttendantLoginScreen() {
     setLoading(true); 
     
     try {
-      const response = await api.post('/attendant/login', { input: identifier, password });
+      const response = await api.post('/attendant/login', { email: identifier, password });
       
       if (response.data.token) {
         await AsyncStorage.setItem('attendantToken', response.data.token);
@@ -59,7 +59,7 @@ export default function AttendantLoginScreen() {
       <View style={styles.form}>
         <TextInput
           style={styles.input}
-          placeholder="Enter email or username"
+          placeholder="Enter email"
           placeholderTextColor="#94A3B8" 
           value={identifier}
           onChangeText={setIdentifier}

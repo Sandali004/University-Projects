@@ -3,7 +3,14 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Keyboard
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 
-const questions = [
+interface Question {
+  id: string;
+  type: string;
+  question: string;
+  options?: string[];
+}
+
+const questions: Question[] = [
   { id: 'name', type: 'text', question: 'Hello! I am here to help you register. What is your full name?' },
   { id: 'phone', type: 'phone', question: 'Nice to meet you! What is your phone number?' },
   { id: 'email', type: 'email', question: 'What is your email address?' },
@@ -16,20 +23,20 @@ const questions = [
 ];
 
 export default function RegisterScreen() {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [inputText, setInputText] = useState('');
-  const [formData, setFormData] = useState({});
+  const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const flatListRef = useRef();
+  const flatListRef = useRef<any>(null);
 
   useEffect(() => {
     // Start the chat by showing the first question
     setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].question }]);
   }, []);
 
-  const handleSend = async (forcedValue = null) => {
+  const handleSend = async (forcedValue: string | null = null) => {
     const value = forcedValue || inputText.trim();
     if (!value) return;
 
@@ -80,17 +87,49 @@ export default function RegisterScreen() {
     }
   };
 
-  const submitRegistration = async (data) => {
+  const submitRegistration = async (data: any) => {
     setLoading(true);
     try {
-      const response = await api.post('/driver/register', data);
+      // Map fields to backend expected names
+      const payload = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        plateNumber: data.vehicleNumber,
+        role: 'driver'
+      };
+
+      await api.post('/driver/register', payload);
       Alert.alert('Success', 'Registration completed successfully!', [
         { text: 'Login', onPress: () => router.replace('/') }
       ]);
-    } catch (error) {
-      console.error(error.response?.data || error.message);
-      Alert.alert('Error', error.response?.data?.message || 'Registration failed.');
-      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Registration failed. Let\'s try again.' }]);
+    } catch (error: any) {
+      console.error("Registration Error:", error.response?.data || error.message);
+      
+      let errorMessage = "An unexpected error occurred.";
+      let detailMessages: string[] = [];
+
+      if (error.response?.data) {
+        errorMessage = error.response.data.message || errorMessage;
+        if (error.response.data.errors) {
+          detailMessages = error.response.data.errors;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      const botErrorMsg = { 
+        id: Date.now().toString(), 
+        sender: 'bot', 
+        text: `❌ ${errorMessage}${detailMessages.length > 0 ? '\n\n' + detailMessages.map(m => `• ${m}`).join('\n') : ''}\n\nPlease try again by correcting your details.` 
+      };
+      
+      setMessages(prev => [...prev, botErrorMsg]);
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } finally {
       setLoading(false);
     }
@@ -121,9 +160,9 @@ export default function RegisterScreen() {
       />
 
       <View style={styles.inputContainer}>
-        {currentQ?.type === 'choice' ? (
+        {currentQ?.type === 'choice' && currentQ.options ? (
           <View style={styles.choicesContainer}>
-            {currentQ.options.map(opt => (
+            {currentQ.options.map((opt: string) => (
               <TouchableOpacity key={opt} style={styles.choiceButton} onPress={() => handleSend(opt)}>
                 <Text style={styles.choiceText}>{opt}</Text>
               </TouchableOpacity>

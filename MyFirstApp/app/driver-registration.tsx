@@ -4,9 +4,14 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Keyboard
 import { useRouter } from 'expo-router'; // React Navigation routing for Expo
 import api from '../services/api';
 
-// Driver specific questions sequence
-// Each object represents one step in the chatbot conversation
-const questions = [
+interface Question {
+  id: string;
+  type: string;
+  text: string;
+  options?: string[];
+}
+
+const questions: Question[] = [
   { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Driver. What is your full name?' },
   { id: 'username', type: 'text', text: 'Please choose a unique username for logging in.' },
   { id: 'phone', type: 'phone', text: 'Great. What is your phone number?' },
@@ -186,10 +191,10 @@ export default function DriverRegistration() {
               <Text style={styles.resetButtonText}>Start Over / Fix Details</Text>
             </TouchableOpacity>
           </View>
-        ) : currentQ?.type === 'choice' ? (
+        ) : currentQ?.type === 'choice' && currentQ.options ? (
           // Show clickable option buttons if the question type is 'choice' (e.g., Vehicle Type)
           <View style={styles.choiceContainer}>
-            {currentQ.options?.map((opt: string) => (
+            {currentQ.options.map((opt: string) => (
               <TouchableOpacity key={opt} style={styles.choiceButton} onPress={() => handleSend(opt)}>
                 <Text style={styles.choiceText}>{opt}</Text>
               </TouchableOpacity>

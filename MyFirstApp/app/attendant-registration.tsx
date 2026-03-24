@@ -3,8 +3,15 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Keyboard
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 
+interface Question {
+  id: string;
+  type: string;
+  text: string;
+  options?: string[];
+}
+
 // Attendant specific questions
-const questions = [
+const questions: Question[] = [
   { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as an Attendant. What is your full name?' },
   { id: 'username', type: 'text', text: 'Please choose a unique username for logging in.' },
   { id: 'phone', type: 'phone', text: 'What is your phone number?' },
@@ -28,8 +35,8 @@ export default function AttendantRegistration() {
     setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
   }, []);
 
-  const handleSend = () => {
-    const value = inputText.trim();
+  const handleSend = (forcedValue: string | null = null) => {
+    const value = forcedValue || inputText.trim();
     if (!value) return;
 
     const currentQ = questions[currentStep];
@@ -145,11 +152,11 @@ export default function AttendantRegistration() {
               secureTextEntry={currentQ?.type === 'password'}
               keyboardType={currentQ?.type === 'phone' ? 'numeric' : currentQ?.type === 'email' ? 'email-address' : 'default'}
               autoCapitalize={currentQ?.type === 'email' || currentQ?.type === 'password' ? 'none' : 'words'}
-              onSubmitEditing={() => handleSend()}
+              onSubmitEditing={() => handleSend(null)}
             />
             <TouchableOpacity 
               style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]} 
-              onPress={() => handleSend()}
+              onPress={() => handleSend(null)}
               disabled={!inputText.trim()}
             >
               <Text style={styles.sendButtonText}>Next</Text>

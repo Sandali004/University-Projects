@@ -24,7 +24,7 @@ export default function ParentRegistration() {
   const [formData, setFormData] = useState<any>({});
   const [isFinished, setIsFinished] = useState(false);
   const router = useRouter();
-  const flatListRef = useRef<any>();
+  const flatListRef = useRef<any>(null);
 
   useEffect(() => {
     setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
@@ -59,14 +59,56 @@ export default function ParentRegistration() {
   const handleSubmit = async () => {
     try {
       console.log("Submitting Parent Registration:", formData);
-      await api.post('/parent/register', formData);
+      
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        childName: formData.childName,
+        role: 'parent'
+      };
+
+      await api.post('/parent/register', payload);
+      
       Alert.alert('Success', 'Parent Registration Complete!', [
-        { text: 'OK', onPress: () => router.push('/parent-login') } // Route directly to their portal
+        { text: 'OK', onPress: () => router.push('/parent-login') }
       ]);
     } catch (error: any) {
       console.log("Parent Registration Error:", error.response?.data || error.message);
-      Alert.alert('Registration Failed', error.response?.data?.message || error.message);
+      
+      let errorMessage = "An unexpected error occurred.";
+      let detailMessages: string[] = [];
+
+      if (error.response?.data) {
+        errorMessage = error.response.data.message || errorMessage;
+        if (error.response.data.errors) {
+          detailMessages = error.response.data.errors;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      const botErrorMsg = { 
+        id: Date.now().toString(), 
+        sender: 'bot', 
+        text: `❌ ${errorMessage}${detailMessages.length > 0 ? '\n\n' + detailMessages.map(m => `• ${m}`).join('\n') : ''}\n\nPlease check your details and try again.` 
+      };
+      
+      setMessages(prev => [...prev, botErrorMsg]);
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
+  };
+
+  const handleReset = () => {
+    setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
+    setCurrentStep(0);
+    setFormData({});
+    setIsFinished(false);
+    setInputText('');
   };
 
   const currentQ = questions[currentStep];
@@ -88,9 +130,14 @@ export default function ParentRegistration() {
 
       <View style={styles.inputContainer}>
         {isFinished ? (
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit Registration</Text>
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+              <Text style={styles.submitButtonText}>Submit Registration</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+              <Text style={styles.resetButtonText}>Start Over / Fix Details</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.textInputRow}>
             <TextInput
@@ -132,5 +179,7 @@ const styles = StyleSheet.create({
   sendButtonDisabled: { backgroundColor: '#94A3B8' },
   sendButtonText: { color: '#FFFFFF', fontWeight: 'bold' },
   submitButton: { backgroundColor: '#10B981', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-  submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }
+  submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+  resetButton: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
+  resetButtonText: { color: '#64748B', fontSize: 14, textDecorationLine: 'underline' }
 });

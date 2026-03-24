@@ -28,7 +28,7 @@ export default function DriverRegistration() {
   const [formData, setFormData] = useState<any>({}); // Collects all the final answers to send to the backend
   const [isFinished, setIsFinished] = useState(false); // True when all questions are answered
   const router = useRouter(); // For navigating pages
-  const flatListRef = useRef<any>(); // Reference to the list to auto-scroll to the bottom
+  const flatListRef = useRef<any>(null); // Reference to the list to auto-scroll to the bottom
 
   // useEffect runs once when the screen opens
   useEffect(() => {
@@ -94,28 +94,62 @@ export default function DriverRegistration() {
     }
   };
 
+  const handleReset = () => {
+    setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
+    setCurrentStep(0);
+    setFormData({});
+    setIsFinished(false);
+    setInputText('');
+  };
+
   // Function: Submit all collected data
   const handleSubmit = async () => {
     try {
-      console.log("Submitting Driver Registration:", formData); // Debug log exactly what was collected
-      await api.post('/driver/register', formData);
+      console.log("Submitting Driver Registration:", formData);
+      
+      // Map frontend fields to backend expected fields
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        plateNumber: formData.vehicleNumber, // Mapping vehicleNumber to plateNumber
+        role: 'driver'
+      };
+
+      await api.post('/driver/register', payload);
+      
       Alert.alert('Success', 'Driver Registration Complete!', [
-        { text: 'OK', onPress: () => router.push('/login') } // Go to login securely
+        { text: 'OK', onPress: () => router.push('/login') }
       ]);
     } catch (error: any) {
-      console.log("Driver Registration Extracted Error:", error.response?.data ? JSON.stringify(error.response.data) : error.message);
+      console.log("Driver Registration Error:", error.response?.data || error.message);
       
-      // Critical Fix: If the backend isn't reachable (Network Error or Timeout), auto-approve as a Mock Success for developmental continuity!
-      if (!error.response || error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-         console.log("Backend offline or timed out. Falling back to MOCK SUCCESS routing.");
-         Alert.alert('Mock Success (Server Offline)', 'The Node.js backend timed out, but we are moving you forward to test the frontend anyway!', [
-           { text: 'OK', onPress: () => router.push('/login') } 
-         ]);
-         return; // Immediately exit the function
+      let errorMessage = "An unexpected error occurred.";
+      let detailMessages: string[] = [];
+
+      if (error.response?.data) {
+        errorMessage = error.response.data.message || errorMessage;
+        if (error.response.data.errors) {
+          detailMessages = error.response.data.errors;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
       }
 
-      // Display exactly what the Node.js server responded with if it legitimately connected but failed
-      Alert.alert('Registration Failed', error.response?.data?.message || error.message);
+      // 1. Add error message from bot
+      const botErrorMsg = { 
+        id: Date.now().toString(), 
+        sender: 'bot', 
+        text: `❌ ${errorMessage}${detailMessages.length > 0 ? '\n\n' + detailMessages.map(m => `• ${m}`).join('\n') : ''}\n\nPlease check your details and try submitting again.` 
+      };
+      
+      setMessages(prev => [...prev, botErrorMsg]);
+      setIsFinished(true); // Keep it finished but allow re-submission if the button is still there
+      
+      // Scroll to bottom to show the error
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     }
   };
 
@@ -144,10 +178,14 @@ export default function DriverRegistration() {
       {/* Input section at the bottom */}
       <View style={styles.inputContainer}>
         {isFinished ? (
-          // Show submit button at the very end
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit Registration</Text>
-          </TouchableOpacity>
+          <View>
+            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
+              <Text style={styles.submitButtonText}>Submit Registration</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
+              <Text style={styles.resetButtonText}>Start Over / Fix Details</Text>
+            </TouchableOpacity>
+          </View>
         ) : currentQ?.type === 'choice' ? (
           // Show clickable option buttons if the question type is 'choice' (e.g., Vehicle Type)
           <View style={styles.choiceContainer}>
@@ -203,5 +241,7 @@ const styles = StyleSheet.create({
   choiceButton: { backgroundColor: '#E0F2FE', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: '#BAE6FD' },
   choiceText: { color: '#0284C7', fontWeight: 'bold' },
   submitButton: { backgroundColor: '#10B981', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-  submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }
+  submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
+  resetButton: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
+  resetButtonText: { color: '#64748B', fontSize: 14, textDecorationLine: 'underline' }
 });

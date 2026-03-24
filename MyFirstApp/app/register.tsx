@@ -3,7 +3,14 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Keyboard
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 
-const questions = [
+interface Question {
+  id: string;
+  type: string;
+  question: string;
+  options?: string[];
+}
+
+const questions: Question[] = [
   { id: 'name', type: 'text', question: 'Hello! I am here to help you register. What is your full name?' },
   { id: 'phone', type: 'phone', question: 'Nice to meet you! What is your phone number?' },
   { id: 'email', type: 'email', question: 'What is your email address?' },
@@ -29,7 +36,7 @@ export default function RegisterScreen() {
     setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].question }]);
   }, []);
 
-  const handleSend = async (forcedValue = null) => {
+  const handleSend = async (forcedValue: string | null = null) => {
     const value = forcedValue || inputText.trim();
     if (!value) return;
 
@@ -80,7 +87,7 @@ export default function RegisterScreen() {
     }
   };
 
-  const submitRegistration = async (data) => {
+  const submitRegistration = async (data: any) => {
     setLoading(true);
     try {
       // Map fields to backend expected names
@@ -96,11 +103,11 @@ export default function RegisterScreen() {
       Alert.alert('Success', 'Registration completed successfully!', [
         { text: 'Login', onPress: () => router.replace('/') }
       ]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration Error:", error.response?.data || error.message);
       
       let errorMessage = "An unexpected error occurred.";
-      let detailMessages = [];
+      let detailMessages: string[] = [];
 
       if (error.response?.data) {
         errorMessage = error.response.data.message || errorMessage;
@@ -153,9 +160,9 @@ export default function RegisterScreen() {
       />
 
       <View style={styles.inputContainer}>
-        {currentQ?.type === 'choice' ? (
+        {currentQ?.type === 'choice' && currentQ.options ? (
           <View style={styles.choicesContainer}>
-            {currentQ.options.map(opt => (
+            {currentQ.options.map((opt: string) => (
               <TouchableOpacity key={opt} style={styles.choiceButton} onPress={() => handleSend(opt)}>
                 <Text style={styles.choiceText}>{opt}</Text>
               </TouchableOpacity>

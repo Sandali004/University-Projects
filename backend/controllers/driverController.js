@@ -7,50 +7,80 @@ export const registerDriver = async (req, res) => {
   try {
     const { name, email, password, plateNumber, role = 'driver' } = req.body;
 
-    if (!name || !email || !password || !plateNumber) {
-      return res.status(400).json({ message: "Missing required registration parameters." });
+    // 1. Structural Validation
+    const errors = [];
+    if (!name || name.trim().length < 2) errors.push("Full name is required (at least 2 characters).");
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.");
+    if (!password || password.length < 6) errors.push("Password must be at least 6 characters long.");
+    if (!plateNumber || plateNumber.trim().length < 3) errors.push("Valid vehicle plate number is required.");
+
+    if (errors.length > 0) {
+      return res.status(400).json({ 
+        message: "Registration failed due to invalid parameters.", 
+        errors,
+        validParameters: {
+          name: "Text (min 2 chars)",
+          email: "Valid email format",
+          password: "Text (min 6 chars)",
+          plateNumber: "Text (e.g., WP-ABC-1234)"
+        }
+      });
     }
 
-    // 1. Hash the password
+    // 2. Hash the password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // 2. Insert into users table
+    // 3. Insert into users table
     const { data: userData, error: userError } = await supabase
       .from('users')
       .insert([{ name, email, password_hash: passwordHash, role }])
       .select()
       .single();
 
-    if (userError) throw userError;
+    if (userError) {
+      if (userError.code === '23505') { // Postgres Unique Violation code
+        return res.status(409).json({ message: "This email address is already registered." });
+      }
+      throw userError;
+    }
 
-    // 3. Insert into vans table
+    // 4. Insert into vans table
     const { error: vanError } = await supabase
       .from('vans')
       .insert([{ driver_id: userData.id, plate_number: plateNumber }]);
 
-    if (vanError) throw vanError;
+    if (vanError) {
+      if (vanError.code === '23505') {
+        // Cleanup created user if van creation fails due to duplicate plate
+        await supabase.from('users').delete().eq('id', userData.id);
+        return res.status(409).json({ message: "This vehicle plate number is already registered by another driver." });
+      }
+      throw vanError;
+    }
 
     res.status(201).json({ message: "Driver registered successfully.", user: userData });
   } catch (error) {
-    res.status(500).json({ message: "Error registering driver", error: error.message });
+    console.error("Registration Error:", error);
+    res.status(500).json({ message: "An internal server error occurred during registration.", error: error.message });
   }
 };
 
 // Function: Login an existing driver
 export const loginDriver = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, input, password } = req.body;
+    const identifier = email || input;
     
-    if (!email || !password) {
-      return res.status(400).json({ message: "Invalid credentials." });
+    if (!identifier || !password) {
+      return res.status(400).json({ message: "Email and password are required." });
     }
 
     // 1. Fetch user from Supabase
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
+      .eq('email', identifier)
       .single();
 
     if (error || !user) {

@@ -25,7 +25,7 @@ export default function ParentLoginScreen() {
     
     try {
       // 2. Make an API call to the backend login route
-      const response = await api.post('/parent/login', { input: identifier, password });
+      const response = await api.post('/parent/login', { email: identifier, password });
       
       if (response.data.token) {
         await AsyncStorage.setItem('parentToken', response.data.token);
@@ -71,7 +71,7 @@ export default function ParentLoginScreen() {
         {/* Email/Username Input */}
         <TextInput
           style={styles.input}
-          placeholder="Enter email or username"
+          placeholder="Enter email"
           placeholderTextColor="#94A3B8" // Light gray color
           value={identifier}
           onChangeText={setIdentifier}

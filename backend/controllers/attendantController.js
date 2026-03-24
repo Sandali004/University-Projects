@@ -1,21 +1,27 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { supabase } from "../utils/supabase.js";
 
 export const registerAttendant = async (req, res) => {
   try {
-    console.log("[Attendant Register] Received Data:", req.body);
-    const { name, username, phone, email, password, nicNumber, assignedRoute, emergencyContact } = req.body;
+    const { name, email, password, role = 'attendant' } = req.body;
 
-    if (!name || !username || !phone || !email || !password || !nicNumber || !assignedRoute || !emergencyContact) {
-       console.log("Missing fields in attendant registration!");
-       return res.status(400).json({ message: "All Attendant registration fields are required." });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Missing required registration parameters." });
     }
 
-    // --- TEMPORARY MOCK LOGIC ---
-    // Skipping MongoDB setup correctly as requested.
-    console.log("Mock Attendant successfully registered in memory!");
-    res.status(201).json({ message: "Attendant registered successfully (Mock)." });
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(password, salt);
 
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .insert([{ name, email, password_hash: passwordHash, role }])
+      .select()
+      .single();
+
+    if (userError) throw userError;
+
+    res.status(201).json({ message: "Attendant registered successfully.", user: userData });
   } catch (error) {
     res.status(500).json({ message: "Error registering attendant", error: error.message });
   }
@@ -23,23 +29,37 @@ export const registerAttendant = async (req, res) => {
 
 export const loginAttendant = async (req, res) => {
   try {
-    const { input, password } = req.body; 
+    const { email, password } = req.body;
     
-    // --- TEMPORARY MOCK LOGIC ---
-    if (!input || !password) {
-      return res.status(400).json({ message: "Invalid credentials." }); 
+    if (!email || !password) {
+      return res.status(400).json({ message: "Invalid credentials." });
+    }
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid email or password." });
     }
 
     const token = jwt.sign(
-      { id: "mock_attendant_123" }, 
+      { id: user.id, role: user.role }, 
       process.env.JWT_SECRET || "fallback_secret_key", 
       { expiresIn: "10d" }
     );
 
     res.status(200).json({ 
-      message: "Login successful (Mock)", 
+      message: "Login successful", 
       token, 
-      attendant: { id: "mock_attendant_123", name: "Mock Attendant", username: input, email: input } 
+      user: { id: user.id, name: user.name, email: user.email, role: user.role } 
     });
 
   } catch (error) {

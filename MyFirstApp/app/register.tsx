@@ -16,13 +16,13 @@ const questions = [
 ];
 
 export default function RegisterScreen() {
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [inputText, setInputText] = useState('');
-  const [formData, setFormData] = useState({});
+  const [formData, setFormData] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const flatListRef = useRef(null);
+  const flatListRef = useRef<any>(null);
 
   useEffect(() => {
     // Start the chat by showing the first question

@@ -22,7 +22,7 @@ export default function RegisterScreen() {
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const flatListRef = useRef();
+  const flatListRef = useRef(null);
 
   useEffect(() => {
     // Start the chat by showing the first question
@@ -83,14 +83,46 @@ export default function RegisterScreen() {
   const submitRegistration = async (data) => {
     setLoading(true);
     try {
-      const response = await api.post('/driver/register', data);
+      // Map fields to backend expected names
+      const payload = {
+        name: data.name,
+        email: data.email,
+        password: data.password,
+        plateNumber: data.vehicleNumber,
+        role: 'driver'
+      };
+
+      await api.post('/driver/register', payload);
       Alert.alert('Success', 'Registration completed successfully!', [
         { text: 'Login', onPress: () => router.replace('/') }
       ]);
     } catch (error) {
-      console.error(error.response?.data || error.message);
-      Alert.alert('Error', error.response?.data?.message || 'Registration failed.');
-      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Registration failed. Let\'s try again.' }]);
+      console.error("Registration Error:", error.response?.data || error.message);
+      
+      let errorMessage = "An unexpected error occurred.";
+      let detailMessages = [];
+
+      if (error.response?.data) {
+        errorMessage = error.response.data.message || errorMessage;
+        if (error.response.data.errors) {
+          detailMessages = error.response.data.errors;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      const botErrorMsg = { 
+        id: Date.now().toString(), 
+        sender: 'bot', 
+        text: `❌ ${errorMessage}${detailMessages.length > 0 ? '\n\n' + detailMessages.map(m => `• ${m}`).join('\n') : ''}\n\nPlease try again by correcting your details.` 
+      };
+      
+      setMessages(prev => [...prev, botErrorMsg]);
+      
+      // Scroll to bottom
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
     } finally {
       setLoading(false);
     }

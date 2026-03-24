@@ -1,12 +1,14 @@
 import React from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 // MapView displays the map, Marker shows a specific point on the map
 import MapView, { Marker } from 'react-native-maps';
-import { useLocalSearchParams } from 'expo-router'; // Hook to access navigation parameters
+import { useLocalSearchParams, useRouter } from 'expo-router'; // Hook to access navigation parameters
+import { Ionicons } from '@expo/vector-icons';
 
 // Screen Component: Simple Map Screen
 export default function MapScreen() {
   const { role } = useLocalSearchParams(); // Extract the 'role' passed securely via navigation params
+  const router = useRouter(); // Hook to perform navigation
 
   // A sample physical location (Colombo, Sri Lanka coordinates)
   // latitudeDelta & longitudeDelta control the zoom level (smaller = closer)
@@ -39,6 +41,14 @@ export default function MapScreen() {
       <View style={styles.floatingBadge}>
         <Text style={styles.badgeText}>Logged in as: {role || 'Unknown'}</Text>
       </View>
+
+      {/* Driver Profile Button */}
+      <TouchableOpacity 
+        style={styles.profileButton}
+        onPress={() => router.push('/driver-profile')}
+      >
+        <Ionicons name="person" size={24} color="#0F172A" />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -54,7 +64,7 @@ const styles = StyleSheet.create({
   },
   floatingBadge: {
     position: 'absolute', // Float over map
-    top: 40,
+    top: 50,
     alignSelf: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.9)', // Slight opacity for modern look
     paddingHorizontal: 20,
@@ -70,5 +80,21 @@ const styles = StyleSheet.create({
     color: '#0F172A', // Very dark slate color
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  profileButton: {
+    position: 'absolute', // Float over map
+    top: 50,
+    right: 20,
+    width: 50,
+    height: 50,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5, // Android drop shadow
   },
 });

@@ -33,8 +33,11 @@ export default function LoginScreen() {
         await AsyncStorage.setItem('driverToken', response.data.token);
         await AsyncStorage.setItem('driverData', JSON.stringify(response.data.driver));
         
-        // 4. Navigate directly to the simple Map screen and pass the role parameter
-        router.replace({ pathname: '/map', params: { role: 'Driver' } });
+        // 4. Navigate directly to the simple Map screen and pass the role and driverId parameters
+        router.replace({ 
+          pathname: '/(dashboard)/map', 
+          params: { role: 'Driver', driverId: response.data.driver.id || response.data.driver._id } 
+        });
       }
     } catch (error: any) {
       // Handle login failures (e.g., wrong password, wrong email)
@@ -46,7 +49,10 @@ export default function LoginScreen() {
          Alert.alert('Mock Success (Server Offline)', 'The Node.js backend timed out, but we are letting you in to test the Map!', [
            { text: 'OK', onPress: () => {
                setLoading(false);
-               router.replace({ pathname: '/map', params: { role: 'Driver' } });
+               router.replace({ 
+                 pathname: '/(dashboard)/map', 
+                 params: { role: 'Driver', driverId: 'mock-driver-123' } 
+               });
              } 
            } 
          ]);

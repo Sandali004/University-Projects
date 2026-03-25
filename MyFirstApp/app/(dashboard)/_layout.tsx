@@ -48,14 +48,15 @@ export default function DashboardLayout() {
         }}
       />
 
-      {/* Live Map tab — shows Driver or Parent view automatically */}
+      {/* Live Map tab — hidden for Parents, they view it in System */}
       <Tabs.Screen
         name="map"
         options={{
-          title: role === 'Parent' ? 'Van Location' : 'Live Map',
+          href: role === 'Parent' ? null : '/map',
+          title: 'Live Map',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
-              name={role === 'Parent' ? 'map-marker-check' : 'map-marker-radius'}
+              name="map-marker-radius"
               size={size}
               color={color}
             />

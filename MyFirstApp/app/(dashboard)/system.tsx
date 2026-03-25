@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
+import { supabase } from '../../services/supabase';
 import api from '../../services/api';
 
 export default function SystemScreen() {
@@ -26,9 +28,43 @@ export default function SystemScreen() {
   // Parents List (Driver)
   const [parents, setParents] = useState<any[]>([]);
 
+  // Parent Map Tracking State
+  const [vanLocation, setVanLocation] = useState<any>(null);
+  const [mapRegion, setMapRegion] = useState<any>(null);
+  const mapRef = useRef<any>(null);
+  const refreshInterval = useRef<any>(null);
+
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (role === 'Parent' && system?.driver_id) {
+      fetchDriverLocation(system.driver_id);
+      refreshInterval.current = setInterval(() => {
+        fetchDriverLocation(system.driver_id);
+      }, 5000);
+    }
+    return () => {
+      if (refreshInterval.current) clearInterval(refreshInterval.current);
+    };
+  }, [role, system]);
+
+  const fetchDriverLocation = async (driverId: string) => {
+    const { data, error } = await supabase
+      .from('vans')
+      .select('current_lat, current_lng')
+      .eq('driver_id', driverId)
+      .single();
+
+    if (!error && data?.current_lat && data?.current_lng) {
+      const lat = parseFloat(data.current_lat);
+      const lng = parseFloat(data.current_lng);
+      setVanLocation({ latitude: lat, longitude: lng });
+      setMapRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+      mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.005, longitudeDelta: 0.005 });
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -259,7 +295,7 @@ export default function SystemScreen() {
   if (role === 'Parent') {
     if (system) {
       return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>My Transportation System</Text>
             <View style={styles.infoRow}>
@@ -275,10 +311,32 @@ export default function SystemScreen() {
               <Text style={styles.infoLabel}>Route: {system.routes?.name || 'Main Route'}</Text>
             </View>
           </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoText}>You are now tracking this vehicle. You can see its live location in the "Live Map" tab.</Text>
+          
+          <Text style={styles.sectionTitle}>Live Tracking</Text>
+          <View style={styles.mapContainer}>
+            {mapRegion ? (
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={mapRegion}
+                showsUserLocation={false}
+              >
+                {vanLocation && (
+                  <Marker coordinate={vanLocation} title="School Van" description="Live location">
+                    <View style={styles.markerContainer}>
+                      <MaterialCommunityIcons name="van-passenger" size={24} color="#F59E0B" />
+                    </View>
+                  </Marker>
+                )}
+              </MapView>
+            ) : (
+              <View style={styles.mapPlaceholder}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text style={styles.mapPlaceholderText}>Waiting for driver location...</Text>
+              </View>
+            )}
           </View>
-        </View>
+        </ScrollView>
       );
     }
 
@@ -339,5 +397,10 @@ const styles = StyleSheet.create({
   submitButton: { backgroundColor: '#3B82F6', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   submitButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   infoCard: { backgroundColor: '#F0F9FF', padding: 16, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#0EA5E9' },
-  infoText: { color: '#0369A1', lineHeight: 20 }
+  infoText: { color: '#0369A1', lineHeight: 20 },
+  mapContainer: { height: 300, width: '100%', borderRadius: 16, overflow: 'hidden', backgroundColor: '#E2E8F0', marginTop: 8, marginBottom: 40 },
+  map: { flex: 1 },
+  mapPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  mapPlaceholderText: { color: '#64748B', marginTop: 8 },
+  markerContainer: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 4, borderWidth: 2, borderColor: '#F59E0B', elevation: 2 }
 });

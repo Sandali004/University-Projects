@@ -3,16 +3,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─────────────────────────────────────────────────────────
 // API Base URL
-// Make sure this points to your computer's local IP address
-// on port 8000 (the port we just fixed the backend to use).
 //
-// HOW TO FIND YOUR IP:
-//   Mac:     Open Terminal and run: ipconfig getifaddr en0
-//   Windows: Open CMD and run:     ipconfig (look for IPv4 Address)
+//  IMPORTANT: Update the IP address below every time your
+//    WiFi or hotspot changes!
 //
-// Example: http://192.168.1.45:8000/api
+// HOW TO FIND YOUR CURRENT IP:
+//   Mac Terminal: run →  ipconfig getifaddr en0    (WiFi)
+//                 run →  ipconfig getifaddr en1    (if WiFi fails)
+//
+// Set PORT to match what's in backend/.env (currently 5000)
+//
+// Example: http://192.168.1.45:5000/api
 // ─────────────────────────────────────────────────────────
-const API_URL = 'http://172.20.10.5:5000/api';
+const API_URL = 'http://172.20.10.3:5000/api';
 
 // Create the Axios HTTP client with the base URL
 const api = axios.create({

@@ -37,7 +37,7 @@ export default function ParentLoginScreen() {
 
       console.log('[ParentLogin] Success! Parent:', result.parent?.name);
       router.replace({
-        pathname: '/(dashboard)/map',
+        pathname: '/(dashboard)',
         params: { role: 'Parent', parentId: result.parent?.id },
       });
     } catch (error: any) {

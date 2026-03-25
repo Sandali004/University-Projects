@@ -8,23 +8,23 @@
 //   role = 'Driver':
 //     - Requests GPS permission
 //     - Tracks the phone's real-time location
-//     - Every 5 seconds, saves lat/lng to the 'vans' table in
+//     - Every 5 seconds, saves lat/lng to the 'transportation_systems' table in
 //       Supabase (matched by driver_id)
 //     - Shows a blue van marker on the map showing the driver's
 //       own live position
 //
 //   role = 'Parent':
 //     - Does NOT use GPS or request any permissions
-//     - Fetches the driver's current lat/lng from the 'vans'
+//     - Fetches the driver's current lat/lng from the 'transportation_systems'
 //       table in Supabase
 //     - Refreshes that location every 5 seconds automatically
 //     - Shows a yellow school-bus marker at the driver's position
 //
 // SUPABASE TABLES USED:
-//   vans  — columns: driver_id, current_lat, current_lng
+//   transportation_systems — columns: driver_id, current_lat, current_lng
 //   users — used to find which driver a parent is linked to
 //           (for simplicity, this version fetches the LATEST
-//            active driver from the vans table)
+//            active driver from the transportation_systems table)
 // ============================================================
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -38,14 +38,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../services/supabase'; // Direct Supabase connection
+import api from '../../services/api';
 
 export default function MapScreen() {
   const router = useRouter();
 
-  // Read the 'role' and 'driverId' params passed from the login screens
-  const { role, driverId: paramDriverId } = useLocalSearchParams();
+  const { role: paramRole, driverId: paramDriverId } = useLocalSearchParams();
 
   // ── Shared state ──────────────────────────────────────────────
+  const [role, setRole] = useState<string | null>(paramRole as string || null);
   const [mapRegion, setMapRegion]   = useState<any>(null); // The map's visible region
   const [vanLocation, setVanLocation] = useState<any>(null); // Current lat/lng of the van
   const [statusText, setStatusText] = useState('Loading...');
@@ -64,7 +65,7 @@ export default function MapScreen() {
 
   // saveLocationToSupabase
   // Called every time the GPS gives a new coordinate.
-  // UPSERT (insert or update) the position in the 'vans' table.
+  // UPSERT (insert or update) the position in the 'transportation_systems' table.
   const saveLocationToSupabase = async (latitude: number, longitude: number) => {
     const driverId = driverIdRef.current;
     if (!driverId) return;
@@ -74,7 +75,7 @@ export default function MapScreen() {
     // 'upsert' means: if a row with this driver_id already exists → update it
     //                 if it does NOT exist yet → insert a new row
     const { error } = await supabase
-      .from('vans')
+      .from('transportation_systems')
       .upsert(
         {
           driver_id:   driverId,
@@ -104,6 +105,23 @@ export default function MapScreen() {
 
       setIsTracking(true);
       setStatusText('Live Tracking Active');
+
+      // Notify parents via backend
+      try {
+        const stored = await AsyncStorage.getItem('driverData');
+        const driverName = stored ? JSON.parse(stored).name : 'The driver';
+        const sysId = paramDriverId || (stored ? JSON.parse(stored).id : null); 
+        // Note: systemId should ideally be the real UUID of the system, not driverId.
+        // But for now, our backend routes use systemId. Let's fetch it if needed or assume it's linked.
+        // Actually, let's just use the current system fetch logic if we have it.
+        if (sysId) {
+           // We need the system UUID. Let's get it from driverId.
+           const { data: sysData } = await supabase.from('transportation_systems').select('id').eq('driver_id', sysId).single();
+           if (sysData) {
+             await api.post(`/system/${sysData.id}/tracking/start`, { driverName });
+           }
+        }
+      } catch (err) { console.log('Failed to send start notification'); }
 
       // Start listening for GPS updates
       locationSubscription.current = await Location.watchPositionAsync(
@@ -152,6 +170,20 @@ export default function MapScreen() {
     }
     setIsTracking(false);
     setStatusText('Tracking Stopped');
+
+    // Notify parents via backend
+    (async () => {
+      try {
+        const stored = await AsyncStorage.getItem('driverData');
+        const dId = paramDriverId || (stored ? JSON.parse(stored).id : null);
+        if (dId) {
+          const { data: sysData } = await supabase.from('transportation_systems').select('id').eq('driver_id', dId).single();
+          if (sysData) {
+            await api.post(`/system/${sysData.id}/tracking/stop`);
+          }
+        }
+      } catch (err) { console.log('Failed to send stop notification'); }
+    })();
   };
 
   // initDriver
@@ -187,8 +219,7 @@ export default function MapScreen() {
       }
     } catch (_) { /* first-time location optional, tracking will start anyway */ }
 
-    // Auto-start tracking when screen opens
-    await startTracking();
+    // Let the driver click "Start Tracking" manually
   };
 
   // ════════════════════════════════════════════════════════════
@@ -196,14 +227,14 @@ export default function MapScreen() {
   // ════════════════════════════════════════════════════════════
 
   // fetchDriverLocation
-  // Reads the latest (most recently updated) driver position from 'vans'.
+  // Reads the latest (most recently updated) driver position from 'transportation_systems'.
   const fetchDriverLocation = async () => {
     console.log('[ParentMap] Fetching driver location from Supabase...');
 
     // Get the most recently updated van record
     // (You can filter by a specific driver if you store the driver link in parents table)
     const { data, error } = await supabase
-      .from('vans')
+      .from('transportation_systems')
       .select('current_lat, current_lng, driver_id')
       .not('current_lat', 'is', null)   // Only rows that actually have a location
       .not('current_lng', 'is', null)
@@ -259,15 +290,33 @@ export default function MapScreen() {
   // LIFECYCLE — runs once when the screen mounts
   // ════════════════════════════════════════════════════════════
   useEffect(() => {
-    if (role === 'Driver') {
-      initDriver();
-    } else if (role === 'Parent') {
-      setLoading(false); // Show map shell while fetching
-      initParent();
-    } else {
-      // Fallback: default to driver mode
-      initDriver();
-    }
+    const checkRoleAndInit = async () => {
+      let currentRole = role as string;
+      
+      // If role not passed in params, figure it out from storage
+      if (!currentRole) {
+        const parentData = await AsyncStorage.getItem('parentData');
+        const driverData = await AsyncStorage.getItem('driverData');
+        
+        if (parentData) {
+          currentRole = 'Parent';
+        } else if (driverData) {
+          currentRole = 'Driver';
+        } else {
+          currentRole = 'Driver'; // Fallback
+        }
+        setRole(currentRole);
+      }
+
+      if (currentRole === 'Driver') {
+        initDriver();
+      } else if (currentRole === 'Parent') {
+        setLoading(false); // Show map shell while fetching
+        initParent();
+      }
+    };
+
+    checkRoleAndInit();
 
     // CLEANUP — runs when the user leaves this screen
     return () => {

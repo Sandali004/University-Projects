@@ -10,8 +10,14 @@ import express from "express";
 import driverRoutes    from "./Routes/driverRoutes.js";
 import parentRoutes    from "./Routes/parentRoutes.js";
 import attendantRoutes from "./Routes/attendantRoutes.js";
+<<<<<<< HEAD
 import locationRoutes  from "./Routes/locationRoutes.js";
 import systemRoutes    from "./Routes/systemRoutes.js";
+=======
+import locationRoutes from "./Routes/locationRoutes.js";
+import systemRoutes from "./Routes/systemRoutes.js";
+import studentRoutes from "./Routes/studentRoutes.js";
+>>>>>>> 295b1962e294da686b3ff2ba806effc725c81893
 
 // ──────────────────────────────────────────────
 // Initialize Express app
@@ -34,8 +40,14 @@ app.get("/api/health", (_req, res) => {
 app.use("/api/driver",    driverRoutes);
 app.use("/api/parent",    parentRoutes);
 app.use("/api/attendant", attendantRoutes);
+<<<<<<< HEAD
 app.use("/api/location",  locationRoutes);
 app.use("/api/system",    systemRoutes);
+=======
+app.use("/api/location", locationRoutes);
+app.use("/api/system", systemRoutes);
+app.use("/api/students", studentRoutes);
+>>>>>>> 295b1962e294da686b3ff2ba806effc725c81893
 
 // ──────────────────────────────────────────────
 // Start server — FIXED to port 5000 only

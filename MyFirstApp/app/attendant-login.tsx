@@ -37,7 +37,7 @@ export default function AttendantLoginScreen() {
 
       console.log('[AttendantLogin] Success! Attendant:', result.attendant?.name);
       router.replace({
-        pathname: '/(dashboard)/map',
+        pathname: '/(dashboard)',
         params: { role: 'Attendant', attendantId: result.attendant?.id },
       });
     } catch (error: any) {

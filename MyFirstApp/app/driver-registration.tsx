@@ -21,17 +21,12 @@ interface Question {
 }
 
 const questions: Question[] = [
-  { id: 'name',             type: 'text',     text: "Hello! Let's get you registered as a Driver. What is your full name?" },
-  { id: 'username',         type: 'text',     text: 'Choose a username (e.g. john_driver).' },
-  { id: 'phone',            type: 'phone',    text: 'What is your phone number?' },
-  { id: 'email',            type: 'email',    text: 'What is your email address?' },
-  { id: 'password',         type: 'password', text: 'Please enter a secure password (min 6 characters).' },
-  { id: 'licenseNumber',    type: 'text',     text: 'What is your driving license number?' },
-  { id: 'vehicleType',      type: 'choice',   text: 'What is your vehicle type?', options: ['Car', 'Van', 'Bus'] },
-  { id: 'vehicleNumber',    type: 'text',     text: 'What is your vehicle registration number?' },
-  { id: 'seatCount',        type: 'number',   text: 'How many passenger seats does your vehicle have?' },
-  { id: 'route',            type: 'text',     text: 'What is your route? (e.g. Colombo - Kandy)' },
-  { id: 'emergencyContact', type: 'phone',    text: 'Finally, what is your emergency contact number?' },
+  { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Driver. What is your full name?' },
+  { id: 'phone', type: 'phone', text: 'Great. What is your phone number?' },
+  { id: 'email', type: 'email', text: 'What is your email address?' },
+  { id: 'password', type: 'password', text: 'Please enter a secure password.' },
+  { id: 'licenseNumber', type: 'text', text: 'What is your driving license number?' },
+  { id: 'emergencyContact', type: 'phone', text: 'Finally, what is your emergency contact number?' },
 ];
 
 // ── Main Component ──────────────────────────────────────
@@ -57,24 +52,7 @@ export default function DriverRegistration() {
 
     const currentQ = questions[currentStep];
 
-    // Seat count validation based on vehicle type
-    if (currentQ.id === 'seatCount') {
-      const seats = parseInt(value, 10);
-      if (isNaN(seats)) {
-        Alert.alert('Invalid', 'Please enter a valid number.');
-        return;
-      }
-      const vehicleType = formData.vehicleType;
-      if (vehicleType === 'Car' && (seats < 4 || seats > 6)) {
-        Alert.alert('Validation Error', 'Car seat count must be between 4 and 6.'); return;
-      }
-      if (vehicleType === 'Van' && (seats < 8 || seats > 15)) {
-        Alert.alert('Validation Error', 'Van seat count must be between 8 and 15.'); return;
-      }
-      if (vehicleType === 'Bus' && (seats < 20 || seats > 50)) {
-        Alert.alert('Validation Error', 'Bus seat count must be between 20 and 50.'); return;
-      }
-    }
+    // No seat validation needed now as it's moved to system creation
 
     // Add the user's answer to the chat
     setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: value }]);
@@ -111,7 +89,15 @@ export default function DriverRegistration() {
   const handleSubmit = async () => {
     setIsLoading(true);
     try {
-      console.log('[DriverReg] Calling registerDriver service...');
+      console.log("Submitting Driver Registration:", formData);
+      
+      // Map frontend fields to backend expected fields
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        role: 'driver'
+      };
 
       // Call the registration service — it goes straight to Supabase
       const result = await registerDriver(formData);

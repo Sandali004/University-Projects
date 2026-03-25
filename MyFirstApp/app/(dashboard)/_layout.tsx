@@ -62,6 +62,15 @@ export default function DashboardLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="system"
+        options={{
+          title: 'System',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="bus-school" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

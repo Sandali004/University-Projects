@@ -6,10 +6,11 @@ import express from "express";
 dotenv.config();
 
 // Import our custom route handlers
-import driverRoutes from "./routes/driverRoutes.js";
-import parentRoutes from "./routes/parentRoutes.js";
-import attendantRoutes from "./routes/attendantRoutes.js";
-import locationRoutes from "./routes/locationRoutes.js";
+import driverRoutes from "./Routes/driverRoutes.js";
+import parentRoutes from "./Routes/parentRoutes.js";
+import attendantRoutes from "./Routes/attendantRoutes.js";
+import locationRoutes from "./Routes/locationRoutes.js";
+import systemRoutes from "./Routes/systemRoutes.js";
 
 // Initialize the Express application
 const app = express();
@@ -23,6 +24,7 @@ app.use("/api/driver", driverRoutes);
 app.use("/api/parent", parentRoutes);
 app.use("/api/attendant", attendantRoutes);
 app.use("/api/location", locationRoutes);
+app.use("/api/system", systemRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 8000;

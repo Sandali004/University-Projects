@@ -8,16 +8,24 @@ import { supabase } from "../utils/supabase.js";
 // ─────────────────────────────────────────────────────────
 export const registerDriver = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, role = 'driver' } = req.body;
 
     // Validate required fields
     const errors = [];
     if (!name || name.trim().length < 2)         errors.push("Full name is required (at least 2 characters).");
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.");
-    if (!password || password.length < 6)         errors.push("Password must be at least 6 characters.");
+    if (!password || password.length < 6) errors.push("Password must be at least 6 characters long.");
 
     if (errors.length > 0) {
-      return res.status(400).json({ message: "Validation failed.", errors });
+      return res.status(400).json({ 
+        message: "Registration failed due to invalid parameters.", 
+        errors,
+        validParameters: {
+          name: "Text (min 2 chars)",
+          email: "Valid email format",
+          password: "Text (min 6 chars)"
+        }
+      });
     }
 
     // Hash the password
@@ -44,11 +52,11 @@ export const registerDriver = async (req, res) => {
       throw error;
     }
 
-    return res.status(201).json({
-      message: "Driver registered successfully!",
-      user: { id: data.id, name: data.name, email: data.email, role: data.role },
+    // 4. Send Success Response
+    return res.status(201).json({ 
+      message: "Driver registered successfully.", 
+      user: { id: data.id, name: data.name, email: data.email, role: data.role } 
     });
-
   } catch (error) {
     console.error("Unexpected error (registerDriver):", error);
     return res.status(500).json({ message: "Server error during registration.", error: error.message });

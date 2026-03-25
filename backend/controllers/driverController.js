@@ -2,14 +2,17 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../utils/supabase.js";
 
-// Function: Register a new driver
+// ─────────────────────────────────────────────────────────
+// REGISTER DRIVER
+// Saves driver into the 'users' table with role = 'driver'
+// ─────────────────────────────────────────────────────────
 export const registerDriver = async (req, res) => {
   try {
     const { name, email, password, role = 'driver' } = req.body;
 
-    // 1. Structural Validation
+    // Validate required fields
     const errors = [];
-    if (!name || name.trim().length < 2) errors.push("Full name is required (at least 2 characters).");
+    if (!name || name.trim().length < 2)         errors.push("Full name is required (at least 2 characters).");
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.");
     if (!password || password.length < 6) errors.push("Password must be at least 6 characters long.");
 
@@ -25,78 +28,96 @@ export const registerDriver = async (req, res) => {
       });
     }
 
-    // 2. Hash the password
+    // Hash the password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // 3. Insert into users table
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .insert([{ name, email, password_hash: passwordHash, role }])
+    // Insert into 'users' table with role = 'driver'
+    const { data, error } = await supabase
+      .from("users")
+      .insert([{
+        name:          name.trim(),
+        email:         email.trim().toLowerCase(),
+        password_hash: passwordHash,
+        role:          "driver",
+      }])
       .select()
       .single();
 
-    if (userError) {
-      if (userError.code === '23505') { // Postgres Unique Violation code
+    if (error) {
+      console.error("Supabase error (registerDriver):", error);
+      if (error.code === "23505") {
         return res.status(409).json({ message: "This email address is already registered." });
       }
-      throw userError;
+      throw error;
     }
 
     // 4. Send Success Response
-    res.status(201).json({ message: "Driver registered successfully.", user: userData });
+    return res.status(201).json({ 
+      message: "Driver registered successfully.", 
+      user: { id: data.id, name: data.name, email: data.email, role: data.role } 
+    });
   } catch (error) {
-    console.error("Registration Error:", error);
-    res.status(500).json({ message: "An internal server error occurred during registration.", error: error.message });
+    console.error("Unexpected error (registerDriver):", error);
+    return res.status(500).json({ message: "Server error during registration.", error: error.message });
   }
 };
 
-// Function: Login an existing driver
+
+// ─────────────────────────────────────────────────────────
+// LOGIN DRIVER
+// Finds user in 'users' table by email WHERE role = 'driver'
+// ─────────────────────────────────────────────────────────
 export const loginDriver = async (req, res) => {
   try {
     const { email, input, password } = req.body;
-    const identifier = email || input;
-    
+    const identifier = (email || input || "").trim().toLowerCase();
+
     if (!identifier || !password) {
-      return res.status(400).json({ message: "Email and password are required." });
+      return res.status(400).json({ message: "Please provide your email and password." });
     }
 
-    // 1. Fetch user from Supabase
+    // Find user by email AND role = 'driver'
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', identifier)
+      .from("users")
+      .select("*")
+      .eq("email", identifier)
+      .eq("role", "driver")
       .single();
 
     if (error || !user) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
-    // 2. Verify password
+    // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
-    // 3. Generate JWT
+    // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, role: user.role }, 
-      process.env.JWT_SECRET || "fallback_secret_key", 
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || "fallback_secret_key",
       { expiresIn: "10d" }
     );
 
-    res.status(200).json({ 
-      message: "Login successful", 
-      token, 
-      user: { id: user.id, name: user.name, email: user.email, role: user.role } 
+    return res.status(200).json({
+      message: "Login successful!",
+      token,
+      driver: { id: user.id, name: user.name, email: user.email, role: user.role },
     });
 
   } catch (error) {
-    res.status(500).json({ message: "Error logging in", error: error.message });
+    console.error("Unexpected error (loginDriver):", error);
+    return res.status(500).json({ message: "Server error during login.", error: error.message });
   }
 };
 
+
+// ─────────────────────────────────────────────────────────
+// SEND ALERT (Placeholder)
+// ─────────────────────────────────────────────────────────
 export const sendAlert = async (req, res) => {
-  // Logic for sending alerts could be added here using the notifications table
-  res.status(200).json({ message: "Alert functionality placeholder." });
+  return res.status(200).json({ message: "Alert sent successfully (placeholder)." });
 };

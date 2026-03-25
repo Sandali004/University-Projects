@@ -73,3 +73,26 @@ CREATE TABLE notifications (
     type TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ============================================================
+-- AUTO-UPDATE TRIGGER for vans.updated_at
+-- This ensures every time the driver's lat/lng is changed,
+-- the updated_at column is automatically set to NOW().
+-- The parent map screen sorts by updated_at to find the
+-- most recently active driver — this trigger makes that work.
+-- ============================================================
+
+-- Step 1: Create the trigger function (runs before each UPDATE)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 2: Attach the trigger to the vans table
+CREATE TRIGGER set_vans_updated_at
+BEFORE UPDATE ON vans
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();

@@ -42,6 +42,9 @@ CREATE TABLE students (
     name TEXT NOT NULL,
     parent_id UUID REFERENCES users(id),
     system_id UUID REFERENCES transportation_systems(id),
+    grade TEXT,
+    pickup_location TEXT,
+    dropoff_location TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -75,7 +78,7 @@ CREATE TABLE notifications (
 );
 
 -- ============================================================
--- AUTO-UPDATE TRIGGER for vans.updated_at
+-- AUTO-UPDATE TRIGGER for transportation_systems.updated_at
 -- This ensures every time the driver's lat/lng is changed,
 -- the updated_at column is automatically set to NOW().
 -- The parent map screen sorts by updated_at to find the
@@ -91,8 +94,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 2: Attach the trigger to the vans table
-CREATE TRIGGER set_vans_updated_at
-BEFORE UPDATE ON vans
+-- Step 2: Attach the trigger to the transportation_systems table
+CREATE TRIGGER set_transportation_systems_updated_at
+BEFORE UPDATE ON transportation_systems
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();

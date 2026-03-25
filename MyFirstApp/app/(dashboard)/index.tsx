@@ -51,8 +51,18 @@ export default function DashboardScreen() {
   };
 
   const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['driverToken', 'driverData', 'parentToken', 'parentData', 'attendantToken', 'attendantData']);
-    router.replace('/');
+    try {
+      await AsyncStorage.removeItem('driverToken');
+      await AsyncStorage.removeItem('driverData');
+      await AsyncStorage.removeItem('parentToken');
+      await AsyncStorage.removeItem('parentData');
+      await AsyncStorage.removeItem('attendantToken');
+      await AsyncStorage.removeItem('attendantData');
+      router.replace('/');
+    } catch (error) {
+      console.log('Error during logout:', error);
+      router.replace('/');
+    }
   };
 
   // --- DRIVER FUNCTIONS ---

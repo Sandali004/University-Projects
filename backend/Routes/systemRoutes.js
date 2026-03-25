@@ -6,7 +6,10 @@ import {
   getSystemParents, 
   removeParent,
   getRoutes,
-  getParentSystem
+  getParentSystem,
+  updateSystemRoute,
+  startTrackingNotify,
+  stopTrackingNotify
 } from "../controllers/systemController.js";
 
 const router = express.Router();
@@ -17,8 +20,11 @@ router.get("/routes", getRoutes);
 // Driver routes
 router.post("/create", createSystem);
 router.get("/driver/:driverId", getSystem);
+router.put("/:systemId/route", updateSystemRoute);
 router.get("/:systemId/parents", getSystemParents);
 router.delete("/:systemId/parents/:parentId", removeParent);
+router.post("/:systemId/tracking/start", startTrackingNotify);
+router.post("/:systemId/tracking/stop", stopTrackingNotify);
 
 // Parent routes
 router.post("/join", joinSystem);

@@ -17,30 +17,37 @@ export const createSystem = async (req, res) => {
 
     const joinCode = generateJoinCode();
 
+    const insertData = {
+      driver_id: driverId,
+      name,
+      plate_number: plateNumber,
+      vehicle_type: vehicleType,
+      max_seats: parseInt(maxSeats, 10) || 0,
+      join_code: joinCode
+    };
+
+    if (routeId) {
+      insertData.route_id = routeId;
+    }
+
     const { data, error } = await supabase
       .from('transportation_systems')
-      .insert([{
-        driver_id: driverId,
-        name,
-        plate_number: plateNumber,
-        vehicle_type: vehicleType,
-        max_seats: parseInt(maxSeats, 10),
-        join_code: joinCode,
-        route_id: routeId
-      }])
+      .insert([insertData])
       .select()
       .single();
 
     if (error) {
+      console.log('Error from Supabase createSystem:', error);
       if (error.code === '23505') {
-        return res.status(409).json({ message: "You already have a system or this plate number/code is taken." });
+        return res.status(409).json({ message: "You already have a system or this plate number is taken." });
       }
-      throw error;
+      return res.status(500).json({ message: "Database Error: " + error.message });
     }
 
     res.status(201).json({ message: "Transportation system created successfully.", system: data });
   } catch (error) {
-    res.status(500).json({ message: "Error creating system", error: error.message });
+    console.log('Error creating system:', error);
+    res.status(500).json({ message: "Error creating system: " + error.message, error: error.message });
   }
 };
 
@@ -163,5 +170,98 @@ export const getParentSystem = async (req, res) => {
     res.status(200).json({ system: data?.transportation_systems || null });
   } catch (error) {
     res.status(500).json({ message: "Error fetching parent system", error: error.message });
+  }
+};
+
+// Function: Update system route
+export const updateSystemRoute = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+    const { routeId } = req.body;
+
+    const { data, error } = await supabase
+      .from('transportation_systems')
+      .update({ route_id: routeId })
+      .eq('id', systemId)
+      .select('*, routes(name)')
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({ message: "Route updated successfully.", system: data });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating route", error: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// START TRACKING NOTIFY
+// ─────────────────────────────────────────────────────────
+export const startTrackingNotify = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+    const { driverName } = req.body;
+
+    // Get all parents linked to this system
+    const { data: parents, error: pError } = await supabase
+      .from('system_parents')
+      .select('parent_id')
+      .eq('system_id', systemId);
+
+    if (pError) throw pError;
+
+    if (parents && parents.length > 0) {
+      const notifications = parents.map(p => ({
+        user_id: p.parent_id,
+        message: `${driverName || 'The driver'} has started live location sharing.`,
+        type: 'tracking_start'
+      }));
+
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (nError) throw nError;
+    }
+
+    res.status(200).json({ message: "Parents notified of tracking start." });
+  } catch (error) {
+    console.error("Error notifying tracking start:", error);
+    res.status(500).json({ message: "Internal Server Error notifying start." });
+  }
+};
+
+// ─────────────────────────────────────────────────────────
+// STOP TRACKING NOTIFY
+// ─────────────────────────────────────────────────────────
+export const stopTrackingNotify = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+
+    const { data: parents, error: pError } = await supabase
+      .from('system_parents')
+      .select('parent_id')
+      .eq('system_id', systemId);
+
+    if (pError) throw pError;
+
+    if (parents && parents.length > 0) {
+      const notifications = parents.map(p => ({
+        user_id: p.parent_id,
+        message: "Driver has stopped live location sharing.",
+        type: 'tracking_stop'
+      }));
+
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (nError) throw nError;
+    }
+
+    res.status(200).json({ message: "Parents notified of tracking stop." });
+  } catch (error) {
+    console.error("Error notifying tracking stop:", error);
+    res.status(500).json({ message: "Internal Server Error notifying stop." });
   }
 };

@@ -3,7 +3,7 @@
 // Uses tabs navigation. The map tab handles both Driver and
 // Parent views based on the role stored in AsyncStorage.
 // ============================================================
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,6 +12,8 @@ export default function DashboardLayout() {
   // Read the role from storage to colour the tab bar correctly
   const [role, setRole] = useState<string>('Driver');
 
+  const pathname = usePathname();
+  
   useEffect(() => {
     (async () => {
       // Check which type of user is logged in
@@ -23,7 +25,7 @@ export default function DashboardLayout() {
       else if (attendantData) setRole('Attendant');
       else               setRole('Driver');
     })();
-  }, []);
+  }, [pathname]);
 
   // Pick accent colour based on role
   const accentColor = role === 'Parent' ? '#10B981' : role === 'Attendant' ? '#8B5CF6' : '#3B82F6';

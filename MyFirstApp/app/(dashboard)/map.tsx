@@ -204,14 +204,28 @@ export default function MapScreen() {
         }
         driverIdRef.current = dId;
         setLoading(false);
-        // Set initial region
-        const pos = await Location.getCurrentPositionAsync({});
-        setMapRegion({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01
-        });
+        
+        // --- SAFE INITIALIZATION ---
+        try {
+          // Request permission FIRST
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+             setStatusText('Permission Denied');
+             Alert.alert('Permission Required', 'Enable location to track your van.');
+             return;
+          }
+          
+          // Only call GPS if granted
+          const pos = await Location.getCurrentPositionAsync({});
+          setMapRegion({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01
+          });
+        } catch (err) {
+          console.warn('[DriverMap] GPS init failed:', err);
+        }
       } else {
         // Parent Mode
         const sysId = await findAssignedSystem();

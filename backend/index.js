@@ -25,7 +25,11 @@ app.use("/api/attendant", attendantRoutes);
 app.use("/api/location", locationRoutes);
 
 // Start the server
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+const PORT = process.env.PORT || 8000;
+app.listen(PORT, (err) => {
+  if (err) {
+    console.error(`Failed to start server on port ${PORT}:`, err.message);
+    process.exit(1);
+  }
   console.log(`Server is running on port ${PORT}`);
 });

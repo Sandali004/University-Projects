@@ -1,9 +1,18 @@
-// Import React and UI Components
+// ============================================================
+// Driver Registration - Chatbot Screen
+// Collects driver info step-by-step and saves DIRECTLY to Supabase
+// No backend server required — works on any internet connection
+// ============================================================
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useRouter } from 'expo-router'; // React Navigation routing for Expo
-import api from '../services/api';
+import {
+  View, Text, TextInput, TouchableOpacity,
+  StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { registerDriver } from '../services/registrationService'; // Direct Supabase registration
 
+// ── Chatbot questions list ──────────────────────────────
+// Each object is one step in the registration chat
 interface Question {
   id: string;
   type: string;
@@ -12,186 +21,163 @@ interface Question {
 }
 
 const questions: Question[] = [
-  { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Driver. What is your full name?' },
-  { id: 'phone', type: 'phone', text: 'Great. What is your phone number?' },
-  { id: 'email', type: 'email', text: 'What is your email address?' },
-  { id: 'password', type: 'password', text: 'Please enter a secure password.' },
-  { id: 'licenseNumber', type: 'text', text: 'What is your driving license number?' },
-  { id: 'vehicleType', type: 'choice', text: 'What is your vehicle type?', options: ['Car', 'Van', 'Bus'] },
-  { id: 'vehicleNumber', type: 'text', text: 'What is your vehicle number?' },
-  { id: 'seatCount', type: 'number', text: 'How many seats are in the vehicle?' },
-  { id: 'route', type: 'text', text: 'What is your route? (e.g., Colombo - Kandy)' },
-  { id: 'emergencyContact', type: 'phone', text: 'Finally, what is your emergency contact number?' },
+  { id: 'name',             type: 'text',     text: "Hello! Let's get you registered as a Driver. What is your full name?" },
+  { id: 'username',         type: 'text',     text: 'Choose a username (e.g. john_driver).' },
+  { id: 'phone',            type: 'phone',    text: 'What is your phone number?' },
+  { id: 'email',            type: 'email',    text: 'What is your email address?' },
+  { id: 'password',         type: 'password', text: 'Please enter a secure password (min 6 characters).' },
+  { id: 'licenseNumber',    type: 'text',     text: 'What is your driving license number?' },
+  { id: 'vehicleType',      type: 'choice',   text: 'What is your vehicle type?', options: ['Car', 'Van', 'Bus'] },
+  { id: 'vehicleNumber',    type: 'text',     text: 'What is your vehicle registration number?' },
+  { id: 'seatCount',        type: 'number',   text: 'How many passenger seats does your vehicle have?' },
+  { id: 'route',            type: 'text',     text: 'What is your route? (e.g. Colombo - Kandy)' },
+  { id: 'emergencyContact', type: 'phone',    text: 'Finally, what is your emergency contact number?' },
 ];
 
+// ── Main Component ──────────────────────────────────────
 export default function DriverRegistration() {
-  // State variables manage the chatbot's memory
-  const [messages, setMessages] = useState<any[]>([]); // Holds all chat bubbles (bot and user)
-  const [currentStep, setCurrentStep] = useState(0); // Tracks which question we are currently on
-  const [inputText, setInputText] = useState(''); // Holds the text currently typed in the input box
-  const [formData, setFormData] = useState<any>({}); // Collects all the final answers to send to the backend
-  const [isFinished, setIsFinished] = useState(false); // True when all questions are answered
-  const router = useRouter(); // For navigating pages
-  const flatListRef = useRef<any>(null); // Reference to the list to auto-scroll to the bottom
+  const [messages, setMessages]     = useState<any[]>([]); // Chat bubble history
+  const [currentStep, setCurrentStep] = useState(0);       // Which question we're on
+  const [inputText, setInputText]   = useState('');        // Text typed in input box
+  const [formData, setFormData]     = useState<any>({});   // All collected answers
+  const [isFinished, setIsFinished] = useState(false);     // True = all questions done
+  const [isLoading, setIsLoading]   = useState(false);     // True = waiting for server
+  const router = useRouter();
+  const flatListRef = useRef<any>(null);
 
-  // useEffect runs once when the screen opens
+  // Show the first question when the screen loads
   useEffect(() => {
-    // Send the very first question when the screen loads
-    setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
+    setMessages([{ id: '0', sender: 'bot', text: questions[0].text }]);
   }, []);
 
-  // Function: Handles when the user presses 'Next' or selects an option
+  // ── Handle user sending an answer ────────────────────
   const handleSend = (forcedValue: string | null = null) => {
-    // 1. Get the value the user typed (or the button they pressed)
     const value = forcedValue !== null ? forcedValue : inputText.trim();
-    if (!value) return; // Ignore if empty
+    if (!value) return;
 
     const currentQ = questions[currentStep];
 
-    // 2. Seat validation logic (Specific to driver)
+    // Seat count validation based on vehicle type
     if (currentQ.id === 'seatCount') {
       const seats = parseInt(value, 10);
-      const vehicleType = formData.vehicleType;
-      
-      // Ensure it's a number
       if (isNaN(seats)) {
         Alert.alert('Invalid', 'Please enter a valid number.');
         return;
       }
-      // Business rules for vehicle capacity
+      const vehicleType = formData.vehicleType;
       if (vehicleType === 'Car' && (seats < 4 || seats > 6)) {
-        Alert.alert('Validation Error', 'Car seat count must be between 4 and 6.');
-        return; // Stops here, asks again
+        Alert.alert('Validation Error', 'Car seat count must be between 4 and 6.'); return;
       }
       if (vehicleType === 'Van' && (seats < 8 || seats > 15)) {
-        Alert.alert('Validation Error', 'Van seat count must be between 8 and 15.');
-        return;
+        Alert.alert('Validation Error', 'Van seat count must be between 8 and 15.'); return;
       }
       if (vehicleType === 'Bus' && (seats < 20 || seats > 50)) {
-        Alert.alert('Validation Error', 'Bus seat count must be between 20 and 50.');
-        return;
+        Alert.alert('Validation Error', 'Bus seat count must be between 20 and 50.'); return;
       }
     }
 
-    // 3. Add the user's valid answer to the chat history array
-    const newMessages = [...messages, { id: Date.now().toString(), sender: 'user', text: value }];
-    setMessages(newMessages);
-    setInputText(''); // Clear input box
+    // Add the user's answer to the chat
+    setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: value }]);
+    setInputText('');
 
-    // 4. Save the answer in our formData object memory
+    // Save the answer to formData
     const updatedFormData = { ...formData, [currentQ.id]: value };
     setFormData(updatedFormData);
 
-    // 5. Check if there are more questions
+    // Move to the next question or finish
     if (currentStep < questions.length - 1) {
-      // Simulate a small delay before the bot asks the next question (makes it feel natural)
       setTimeout(() => {
         setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
-        setCurrentStep(currentStep + 1); // Move to next step
-      }, 500);
+        setCurrentStep(currentStep + 1);
+      }, 450);
     } else {
-      // If no more questions, end the chat
       setIsFinished(true);
       setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'All done! Please submit your registration below.' }]);
-      }, 500);
+        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: '✅ All done! Please review and submit your registration below.' }]);
+      }, 450);
     }
   };
 
+  // ── Handle Reset ─────────────────────────────────────
   const handleReset = () => {
-    setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
+    setMessages([{ id: '0', sender: 'bot', text: questions[0].text }]);
     setCurrentStep(0);
     setFormData({});
     setIsFinished(false);
     setInputText('');
   };
 
-  // Function: Submit all collected data
+  // ── Handle Submit — sends directly to Supabase (no backend needed!) ──
   const handleSubmit = async () => {
+    setIsLoading(true);
     try {
-      console.log("Submitting Driver Registration:", formData);
-      
-      // Map frontend fields to backend expected fields
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        plateNumber: formData.vehicleNumber, // Mapping vehicleNumber to plateNumber
-        role: 'driver'
-      };
+      console.log('[DriverReg] Calling registerDriver service...');
 
-      await api.post('/driver/register', payload);
-      
-      Alert.alert('Success', 'Driver Registration Complete!', [
-        { text: 'OK', onPress: () => router.push('/login') }
-      ]);
-    } catch (error: any) {
-      console.log("Driver Registration Error:", error.response?.data || error.message);
-      
-      let errorMessage = "An unexpected error occurred.";
-      let detailMessages: string[] = [];
+      // Call the registration service — it goes straight to Supabase
+      const result = await registerDriver(formData);
 
-      if (error.response?.data) {
-        errorMessage = error.response.data.message || errorMessage;
-        if (error.response.data.errors) {
-          detailMessages = error.response.data.errors;
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
+      if (!result.success) {
+        // Show the exact error in the chat bubble
+        console.log('[DriverReg] Registration failed:', result.message);
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          sender: 'bot',
+          text: `❌ ${result.message}\n\nPlease fix the above and tap Submit again.`,
+        }]);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        return;
       }
 
-      // 1. Add error message from bot
-      const botErrorMsg = { 
-        id: Date.now().toString(), 
-        sender: 'bot', 
-        text: `❌ ${errorMessage}${detailMessages.length > 0 ? '\n\n' + detailMessages.map(m => `• ${m}`).join('\n') : ''}\n\nPlease check your details and try submitting again.` 
-      };
-      
-      setMessages(prev => [...prev, botErrorMsg]);
-      setIsFinished(true); // Keep it finished but allow re-submission if the button is still there
-      
-      // Scroll to bottom to show the error
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      // ✅ Success!
+      console.log('[DriverReg] Registration success!', result.data?.id);
+      Alert.alert('🎉 Registered!', 'Driver registered successfully! You can now log in.', [
+        { text: 'Go to Login', onPress: () => router.push('/login') },
+      ]);
+    } catch (error: any) {
+      // Catch any unexpected JS errors
+      const msg = error.message || 'An unexpected error occurred. Please try again.';
+      console.error('[DriverReg] Unexpected error:', msg);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        sender: 'bot',
+        text: `❌ Error: ${msg}\n\nPlease try submitting again.`,
+      }]);
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const currentQ = questions[currentStep];
 
-  // UI Code
   return (
-    // KeyboardAvoidingView prevents the input box from being hidden behind the onscreen keyboard
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      
-      {/* Scrollable list of chat messages */}
+      {/* Chat message list */}
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item) => item.id} // Unique ID for each message bubble
+        keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          // Assign different styles based on who sent the message (user vs bot)
           <View style={[styles.bubble, item.sender === 'user' ? styles.userBubble : styles.botBubble]}>
             <Text style={[styles.bubbleText, item.sender === 'user' && styles.userBubbleText]}>{item.text}</Text>
           </View>
         )}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })} // Auto-scroll to bottom
+        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         contentContainerStyle={styles.chatContainer}
       />
 
-      {/* Input section at the bottom */}
+      {/* Input section */}
       <View style={styles.inputContainer}>
         {isFinished ? (
           <View>
-            <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-              <Text style={styles.submitButtonText}>Submit Registration</Text>
+            <TouchableOpacity style={[styles.submitButton, isLoading && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={isLoading}>
+              <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit Registration'}</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.resetButton} onPress={handleReset}>
               <Text style={styles.resetButtonText}>Start Over / Fix Details</Text>
             </TouchableOpacity>
           </View>
         ) : currentQ?.type === 'choice' && currentQ.options ? (
-          // Show clickable option buttons if the question type is 'choice' (e.g., Vehicle Type)
           <View style={styles.choiceContainer}>
             {currentQ.options.map((opt: string) => (
               <TouchableOpacity key={opt} style={styles.choiceButton} onPress={() => handleSend(opt)}>
@@ -200,20 +186,19 @@ export default function DriverRegistration() {
             ))}
           </View>
         ) : (
-          // Standard text input box
           <View style={styles.textInputRow}>
             <TextInput
               style={styles.input}
               placeholder="Type your answer..."
               value={inputText}
               onChangeText={setInputText}
-              secureTextEntry={currentQ?.type === 'password'} // Hides password dots
+              secureTextEntry={currentQ?.type === 'password'}
               keyboardType={currentQ?.type === 'number' || currentQ?.type === 'phone' ? 'numeric' : currentQ?.type === 'email' ? 'email-address' : 'default'}
               autoCapitalize={currentQ?.type === 'email' || currentQ?.type === 'password' ? 'none' : 'words'}
-              onSubmitEditing={() => handleSend()} // Allows sending via keyboard enter key
+              onSubmitEditing={() => handleSend()}
             />
-            <TouchableOpacity 
-              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]} 
+            <TouchableOpacity
+              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
               onPress={() => handleSend()}
               disabled={!inputText.trim()}
             >
@@ -226,7 +211,6 @@ export default function DriverRegistration() {
   );
 }
 
-// Styling classes layout
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   chatContainer: { padding: 16, paddingBottom: 24 },
@@ -245,7 +229,8 @@ const styles = StyleSheet.create({
   choiceButton: { backgroundColor: '#E0F2FE', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: '#BAE6FD' },
   choiceText: { color: '#0284C7', fontWeight: 'bold' },
   submitButton: { backgroundColor: '#10B981', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  submitButtonDisabled: { backgroundColor: '#6EE7B7' },
   submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   resetButton: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
-  resetButtonText: { color: '#64748B', fontSize: 14, textDecorationLine: 'underline' }
+  resetButtonText: { color: '#64748B', fontSize: 14, textDecorationLine: 'underline' },
 });

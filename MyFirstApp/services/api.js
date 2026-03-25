@@ -1,36 +1,50 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Define the Base URL that points to our Node.js Backend API
-// Note: When testing on a real Android/iOS device, 'localhost' will fail. 
-// You must use your computer's actual local IPv4 address (e.g., 192.168.x.x).
-const API_URL = 'http://192.168.8.184:5000/api';
+// ─────────────────────────────────────────────────────────
+// API Base URL
+// Make sure this points to your computer's local IP address
+// on port 8000 (the port we just fixed the backend to use).
+//
+// HOW TO FIND YOUR IP:
+//   Mac:     Open Terminal and run: ipconfig getifaddr en0
+//   Windows: Open CMD and run:     ipconfig (look for IPv4 Address)
+//
+// Example: http://192.168.1.45:8000/api
+// ─────────────────────────────────────────────────────────
+const API_URL = 'http://192.168.8.184:8000/api';
 
-// Create an Axios instance: a customized HTTP client with our base settings
+// Create the Axios HTTP client with the base URL
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 5000, // Abort the request if the backend doesn't explicitly respond in 5 seconds
+  timeout: 10000, // 10 seconds before giving up on a request
 });
 
-// Axios Request Interceptor
-// This piece of code automatically runs BEFORE every API request is sent
+// ─────────────────────────────────────────────────────────
+// Request Interceptor
+// This code runs BEFORE every request is sent.
+// It automatically attaches the saved login token to the request.
+// ─────────────────────────────────────────────────────────
 api.interceptors.request.use(
   async (config) => {
-    // Try to get the saved authentication token from local storage
-    const token = await AsyncStorage.getItem('driverToken');
+    // Check for any of the three possible saved tokens (driver, parent, attendant)
+    const driverToken   = await AsyncStorage.getItem('driverToken');
+    const parentToken   = await AsyncStorage.getItem('parentToken');
+    const attendantToken = await AsyncStorage.getItem('attendantToken');
 
-    // If we have a token (meaning the user is logged in), attach it to the request headers
+    // Use whichever token is available
+    const token = driverToken || parentToken || attendantToken;
+
     if (token) {
+      // Attach token to the Authorization header
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    return config; // Continue sending the request
+    return config;
   },
   (error) => {
-    // If the request setup fails, reject the promise with the error
     return Promise.reject(error);
   }
 );
 
-// Export the customized api instance for use across frontend screens
 export default api;

@@ -1,32 +1,3 @@
-// ============================================================
-// map.tsx — Smart Map Screen (Driver + Parent)
-//
-// HOW IT WORKS:
-//   This single screen shows different behaviour depending on
-//   who is logged in (passed as the 'role' URL param):
-//
-//   role = 'Driver':
-//     - Requests GPS permission
-//     - Tracks the phone's real-time location
-//     - Every 5 seconds, saves lat/lng to the 'transportation_systems' table in
-//       Supabase (matched by driver_id)
-//     - Shows a blue van marker on the map showing the driver's
-//       own live position
-//
-//   role = 'Parent':
-//     - Does NOT use GPS or request any permissions
-//     - Fetches the driver's current lat/lng from the 'transportation_systems'
-//       table in Supabase
-//     - Refreshes that location every 5 seconds automatically
-//     - Shows a yellow school-bus marker at the driver's position
-//
-// SUPABASE TABLES USED:
-//   transportation_systems — columns: driver_id, current_lat, current_lng
-//   users — used to find which driver a parent is linked to
-//           (for simplicity, this version fetches the LATEST
-//            active driver from the transportation_systems table)
-// ============================================================
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -59,10 +30,7 @@ export default function MapScreen() {
   const refreshInterval      = useRef<any>(null); // Auto-refresh timer (parent only)
   const driverIdRef          = useRef<string | null>(null); // The driver's user ID
 
-  // ════════════════════════════════════════════════════════════
   // DRIVER LOGIC
-  // ════════════════════════════════════════════════════════════
-
   // saveLocationToSupabase
   // Called every time the GPS gives a new coordinate.
   // UPSERT (insert or update) the position in the 'transportation_systems' table.
@@ -222,10 +190,7 @@ export default function MapScreen() {
     // Let the driver click "Start Tracking" manually
   };
 
-  // ════════════════════════════════════════════════════════════
   // PARENT LOGIC
-  // ════════════════════════════════════════════════════════════
-
   // fetchDriverLocation
   // Reads the latest (most recently updated) driver position from 'transportation_systems'.
   const fetchDriverLocation = async () => {
@@ -286,9 +251,7 @@ export default function MapScreen() {
     }, 5000);
   };
 
-  // ════════════════════════════════════════════════════════════
   // LIFECYCLE — runs once when the screen mounts
-  // ════════════════════════════════════════════════════════════
   useEffect(() => {
     const checkRoleAndInit = async () => {
       let currentRole = role as string;
@@ -333,9 +296,8 @@ export default function MapScreen() {
     };
   }, []);
 
-  // ════════════════════════════════════════════════════════════
+
   // UI
-  // ════════════════════════════════════════════════════════════
   const isDriver = role === 'Driver';
   const isParent = role === 'Parent';
 
@@ -438,9 +400,7 @@ export default function MapScreen() {
   );
 }
 
-// ════════════════════════════════════════════════════════════
 // STYLES
-// ════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
   container:       { flex: 1 },
   map:             { flex: 1 },

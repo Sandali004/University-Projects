@@ -10,9 +10,8 @@ import locationRoutes  from "./Routes/locationRoutes.js";
 import systemRoutes    from "./Routes/systemRoutes.js";
 import studentRoutes   from "./Routes/studentRoutes.js";
 
-// ──────────────────────────────────────────────
 // Initialize Express app
-// ──────────────────────────────────────────────
+
 const app = express();
 
 // Middleware
@@ -24,9 +23,9 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", message: "Backend is running ✅" });
 });
 
-// ──────────────────────────────────────────────
+
 // API Routes
-// ──────────────────────────────────────────────
+
 app.use("/api/driver",    driverRoutes);
 app.use("/api/parent",    parentRoutes);
 app.use("/api/attendant", attendantRoutes);
@@ -34,14 +33,7 @@ app.use("/api/location",  locationRoutes);
 app.use("/api/system",    systemRoutes);
 app.use("/api/students",  studentRoutes);
 
-// ──────────────────────────────────────────────
-// Smart Server Startup
-// Tries the preferred PORT first.
-// If that port is already busy (EADDRINUSE),
-// it automatically tries PORT+1, PORT+2, etc.
-// This prevents crashes when you forget to
-// stop the old server before restarting.
-// ──────────────────────────────────────────────
+
 const PREFERRED_PORT = parseInt(process.env.PORT || "5000", 10);
 
 function startServer(port) {

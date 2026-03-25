@@ -80,12 +80,6 @@ CREATE TABLE notifications (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- ============================================================
--- AUTO-UPDATE TRIGGER for transportation_systems.updated_at
--- This ensures the 'updated_at' column is refreshed every 
--- time the GPS coordinates are saved, making it easy to 
--- identify the most active drivers in real-time.
--- ============================================================
 
 -- Step 1: Create the trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()

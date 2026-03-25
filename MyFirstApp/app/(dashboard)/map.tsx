@@ -16,7 +16,7 @@ export default function MapScreen() {
 
   const { role: paramRole, driverId: paramDriverId } = useLocalSearchParams();
 
-  // ── Shared state ──────────────────────────────────────────────
+  //  Shared state 
   const [role, setRole] = useState<string | null>(paramRole as string || null);
   const [mapRegion, setMapRegion]   = useState<any>(null); // The map's visible region
   const [vanLocation, setVanLocation] = useState<any>(null); // Current lat/lng of the van

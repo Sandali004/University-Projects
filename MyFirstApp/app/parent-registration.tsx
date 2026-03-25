@@ -1,7 +1,6 @@
-// ============================================================
 // Parent Registration - Chatbot Screen
 // Collects parent/child info step-by-step and saves via Backend API
-// ============================================================
+
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,

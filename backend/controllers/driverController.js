@@ -2,10 +2,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../utils/supabase.js";
 
-// ─────────────────────────────────────────────────────────
 // REGISTER DRIVER
 // Saves driver into the 'users' table with role = 'driver'
-// ─────────────────────────────────────────────────────────
 export const registerDriver = async (req, res) => {
   try {
     console.log("[Backend] registerDriver body:", req.body);
@@ -69,10 +67,9 @@ export const registerDriver = async (req, res) => {
 };
 
 
-// ─────────────────────────────────────────────────────────
 // LOGIN DRIVER
 // Finds user in 'users' table by email WHERE role = 'driver'
-// ─────────────────────────────────────────────────────────
+
 export const loginDriver = async (req, res) => {
   try {
     const { email, input, password } = req.body;
@@ -120,9 +117,8 @@ export const loginDriver = async (req, res) => {
 };
 
 
-// ─────────────────────────────────────────────────────────
 // SEND ALERT (Placeholder)
-// ─────────────────────────────────────────────────────────
+
 export const sendAlert = async (req, res) => {
   try {
     const { driverId, alertType, message } = req.body;

@@ -1,8 +1,6 @@
-// ============================================================
 // registrationService.js
-//
 // Registers users via the BACKEND API.
-// ============================================================
+
 
 import api from './api';
 
@@ -21,23 +19,22 @@ async function registerHelper(endpoint, formData) {
   }
 }
 
-// ─────────────────────────────────────────────────────────
+
 // registerDriver
-// ─────────────────────────────────────────────────────────
+
 export async function registerDriver(formData) {
   return await registerHelper('/driver/register', formData);
 }
 
-// ─────────────────────────────────────────────────────────
 // registerParent
-// ─────────────────────────────────────────────────────────
+
 export async function registerParent(formData) {
   return await registerHelper('/parent/register', formData);
 }
 
-// ─────────────────────────────────────────────────────────
+
 // registerAttendant
-// ─────────────────────────────────────────────────────────
+
 export async function registerAttendant(formData) {
   return await registerHelper('/attendant/register', formData);
 }

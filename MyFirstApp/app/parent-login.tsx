@@ -1,8 +1,3 @@
-// ============================================================
-// Parent Login Screen
-// Authenticates directly against Supabase 'parents' table
-// No backend server required — works on any internet connection
-// ============================================================
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,

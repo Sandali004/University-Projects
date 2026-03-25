@@ -8,7 +8,8 @@ import { supabase } from "../utils/supabase.js";
 // ─────────────────────────────────────────────────────────
 export const registerDriver = async (req, res) => {
   try {
-    const { name, email, password, role = 'driver' } = req.body;
+    console.log("[Backend] registerDriver body:", req.body);
+    const { name, email, password } = req.body;
 
     // Validate required fields
     const errors = [];
@@ -59,7 +60,11 @@ export const registerDriver = async (req, res) => {
     });
   } catch (error) {
     console.error("Unexpected error (registerDriver):", error);
-    return res.status(500).json({ message: "Server error during registration.", error: error.message });
+    return res.status(500).json({ 
+      message: "Server error during registration.", 
+      error: error.message,
+      details: error
+    });
   }
 };
 
@@ -105,7 +110,7 @@ export const loginDriver = async (req, res) => {
     return res.status(200).json({
       message: "Login successful!",
       token,
-      driver: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }, // changed 'driver' to 'user'
     });
 
   } catch (error) {

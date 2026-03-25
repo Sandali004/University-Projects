@@ -1,7 +1,6 @@
 // ============================================================
 // Parent Registration - Chatbot Screen
-// Collects parent/child info step-by-step and saves DIRECTLY to Supabase
-// No backend server required — works on any internet connection
+// Collects parent/child info step-by-step and saves via Backend API
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -96,7 +95,7 @@ export default function ParentRegistration() {
         return;
       }
 
-      console.log('[ParentReg] Registration success!', result.data?.id);
+      console.log('[ParentReg] Registration success!', result.user?.id);
       Alert.alert('🎉 Registered!', 'Parent registered successfully! You can now log in.', [
         { text: 'Go to Login', onPress: () => router.push('/parent-login') },
       ]);

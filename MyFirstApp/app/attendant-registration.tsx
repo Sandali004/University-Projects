@@ -1,7 +1,6 @@
 // ============================================================
 // Attendant Registration - Chatbot Screen
-// Collects attendant info step-by-step and saves DIRECTLY to Supabase
-// No backend server required — works on any internet connection
+// Collects attendant info step-by-step and saves via Backend API
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -94,7 +93,7 @@ export default function AttendantRegistration() {
         return;
       }
 
-      console.log('[AttendantReg] Registration success!', result.data?.id);
+      console.log('[AttendantReg] Registration success!', result.user?.id);
       Alert.alert('🎉 Registered!', 'Attendant registered successfully! You can now log in.', [
         { text: 'Go to Login', onPress: () => router.push('/attendant-login') },
       ]);

@@ -27,7 +27,7 @@ export default function ParentLoginScreen() {
     try {
       console.log('[ParentLogin] Attempting login for:', identifier.trim());
 
-      const result = await loginParent(identifier, password);
+      const result: any = await loginParent(identifier, password);
 
       if (!result.success) {
         console.log('[ParentLogin] Failed:', result.message);

@@ -27,7 +27,7 @@ export default function AttendantLoginScreen() {
     try {
       console.log('[AttendantLogin] Attempting login for:', identifier.trim());
 
-      const result = await loginAttendant(identifier, password);
+      const result: any = await loginAttendant(identifier, password);
 
       if (!result.success) {
         console.log('[AttendantLogin] Failed:', result.message);

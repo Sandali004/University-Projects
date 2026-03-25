@@ -28,7 +28,7 @@ export default function LoginScreen() {
       console.log('[DriverLogin] Attempting login for:', identifier.trim());
 
       // Call the login service — talks directly to Supabase, no backend needed
-      const result = await loginDriver(identifier, password);
+      const result: any = await loginDriver(identifier, password);
 
       if (!result.success) {
         console.log('[DriverLogin] Failed:', result.message);

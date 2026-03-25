@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, FlatList } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import MapView, { Marker } from 'react-native-maps';
+import { supabase } from '../../services/supabase';
 import api from '../../services/api';
 
 export default function SystemScreen() {
+  const router = useRouter();
   const [role, setRole] = useState<'Driver' | 'Parent' | null>(null);
   const [userData, setUserData] = useState<any>(null);
   const [system, setSystem] = useState<any>(null);
@@ -18,6 +22,8 @@ export default function SystemScreen() {
   const [routes, setRoutes] = useState<any[]>([]);
   const [selectedRoute, setSelectedRoute] = useState<any>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isEditingRoute, setIsEditingRoute] = useState(false);
+  const [isUpdatingRoute, setIsUpdatingRoute] = useState(false);
 
   // Join System State (Parent)
   const [joinCode, setJoinCode] = useState('');
@@ -26,9 +32,43 @@ export default function SystemScreen() {
   // Parents List (Driver)
   const [parents, setParents] = useState<any[]>([]);
 
+  // Parent Map Tracking State
+  const [vanLocation, setVanLocation] = useState<any>(null);
+  const [mapRegion, setMapRegion] = useState<any>(null);
+  const mapRef = useRef<any>(null);
+  const refreshInterval = useRef<any>(null);
+
   useEffect(() => {
     loadInitialData();
   }, []);
+
+  useEffect(() => {
+    if (role === 'Parent' && system?.driver_id) {
+      fetchDriverLocation(system.driver_id);
+      refreshInterval.current = setInterval(() => {
+        fetchDriverLocation(system.driver_id);
+      }, 5000);
+    }
+    return () => {
+      if (refreshInterval.current) clearInterval(refreshInterval.current);
+    };
+  }, [role, system]);
+
+  const fetchDriverLocation = async (driverId: string) => {
+    const { data, error } = await supabase
+      .from('transportation_systems')
+      .select('current_lat, current_lng')
+      .eq('driver_id', driverId)
+      .single();
+
+    if (!error && data?.current_lat && data?.current_lng) {
+      const lat = parseFloat(data.current_lat);
+      const lng = parseFloat(data.current_lng);
+      setVanLocation({ latitude: lat, longitude: lng });
+      setMapRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 });
+      mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.005, longitudeDelta: 0.005 });
+    }
+  };
 
   const loadInitialData = async () => {
     try {
@@ -95,8 +135,8 @@ export default function SystemScreen() {
   };
 
   const handleCreateSystem = async () => {
-    if (!name || !plateNumber || !maxSeats || !selectedRoute) {
-      Alert.alert('Error', 'Please fill all fields.');
+    if (!name || !plateNumber || !maxSeats) {
+      Alert.alert('Error', 'Please fill all required fields (System Name, Plate Number, Seats).');
       return;
     }
 
@@ -108,7 +148,7 @@ export default function SystemScreen() {
         plateNumber,
         vehicleType,
         maxSeats,
-        routeId: selectedRoute.id
+        routeId: selectedRoute?.id || null
       };
       const response = await api.post('/system/create', payload);
       setSystem(response.data.system);
@@ -117,6 +157,20 @@ export default function SystemScreen() {
       Alert.alert('Error', error.response?.data?.message || 'Could not create system');
     } finally {
       setIsCreating(false);
+    }
+  };
+
+  const handleUpdateRoute = async (route: any) => {
+    try {
+      setIsUpdatingRoute(true);
+      const response = await api.put(`/system/${system.id}/route`, { routeId: route.id });
+      setSystem(response.data.system);
+      setIsEditingRoute(false);
+      Alert.alert('Success', 'Route updated successfully!');
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Could not update route');
+    } finally {
+      setIsUpdatingRoute(false);
     }
   };
 
@@ -169,12 +223,48 @@ export default function SystemScreen() {
             </View>
             <View style={styles.infoRow}>
               <MaterialCommunityIcons name="map-marker" size={20} color="#64748B" />
-              <Text style={styles.infoLabel}>Route: {system.routes?.name || 'Assigned Route'}</Text>
+              <Text style={styles.infoLabel}>Route: {system.routes?.name || 'No route assigned'}</Text>
+              <TouchableOpacity style={styles.editRouteBtn} onPress={() => setIsEditingRoute(!isEditingRoute)}>
+                <Text style={styles.editRouteBtnText}>{isEditingRoute ? 'Cancel' : 'Change'}</Text>
+              </TouchableOpacity>
             </View>
+
+            {isEditingRoute && (
+              <View style={styles.routeEditContainer}>
+                <Text style={styles.routeEditTitle}>Select New Route:</Text>
+                <View style={styles.routeList}>
+                  {routes.map(route => (
+                    <TouchableOpacity 
+                      key={route.id} 
+                      style={[styles.routeButton, system.route_id === route.id && styles.routeButtonActive]}
+                      onPress={() => handleUpdateRoute(route)}
+                      disabled={isUpdatingRoute}
+                    >
+                      {isUpdatingRoute && system.route_id === route.id ? (
+                        <ActivityIndicator size="small" color="#3B82F6" />
+                      ) : (
+                        <Text style={[styles.routeText, system.route_id === route.id && styles.routeTextActive]}>{route.name}</Text>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
             <View style={styles.codeContainer}>
               <Text style={styles.codeTitle}>Parent Join Code:</Text>
               <Text style={styles.codeText}>{system.join_code}</Text>
               <Text style={styles.codeSub}>Share this code with parents to add them.</Text>
+            </View>
+
+            <View style={styles.trackingActions}>
+               <TouchableOpacity 
+                 style={styles.mapLinkBtn} 
+                 onPress={() => router.push({ pathname: '/(dashboard)/map', params: { role: 'Driver' } })}
+               >
+                 <MaterialCommunityIcons name="map-marker-path" size={24} color="#fff" />
+                 <Text style={styles.mapLinkText}>Go to Live Map</Text>
+               </TouchableOpacity>
             </View>
           </View>
 
@@ -259,7 +349,7 @@ export default function SystemScreen() {
   if (role === 'Parent') {
     if (system) {
       return (
-        <View style={styles.container}>
+        <ScrollView style={styles.container}>
           <View style={styles.card}>
             <Text style={styles.cardTitle}>My Transportation System</Text>
             <View style={styles.infoRow}>
@@ -275,10 +365,38 @@ export default function SystemScreen() {
               <Text style={styles.infoLabel}>Route: {system.routes?.name || 'Main Route'}</Text>
             </View>
           </View>
-          <View style={styles.infoCard}>
-            <Text style={styles.infoText}>You are now tracking this vehicle. You can see its live location in the "Live Map" tab.</Text>
+          
+          <View style={styles.trackingHeaderRow}>
+            <Text style={styles.sectionTitle}>Live Tracking</Text>
+            <View style={styles.liveBadge}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>LIVE</Text>
+            </View>
           </View>
-        </View>
+          <View style={styles.mapContainer}>
+            {mapRegion ? (
+              <MapView
+                ref={mapRef}
+                style={styles.map}
+                initialRegion={mapRegion}
+                showsUserLocation={false}
+              >
+                {vanLocation && (
+                  <Marker coordinate={vanLocation} title="School Van" description="Live location">
+                    <View style={styles.markerContainer}>
+                      <MaterialCommunityIcons name="van-passenger" size={24} color="#F59E0B" />
+                    </View>
+                  </Marker>
+                )}
+              </MapView>
+            ) : (
+              <View style={styles.mapPlaceholder}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+                <Text style={styles.mapPlaceholderText}>Waiting for driver location...</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
       );
     }
 
@@ -339,5 +457,21 @@ const styles = StyleSheet.create({
   submitButton: { backgroundColor: '#3B82F6', padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 10 },
   submitButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   infoCard: { backgroundColor: '#F0F9FF', padding: 16, borderRadius: 12, borderLeftWidth: 4, borderLeftColor: '#0EA5E9' },
-  infoText: { color: '#0369A1', lineHeight: 20 }
+  infoText: { color: '#0369A1', lineHeight: 20 },
+  mapContainer: { height: 300, width: '100%', borderRadius: 16, overflow: 'hidden', backgroundColor: '#E2E8F0', marginTop: 8, marginBottom: 40 },
+  map: { flex: 1 },
+  mapPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  mapPlaceholderText: { color: '#64748B', marginTop: 8 },
+  markerContainer: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 4, borderWidth: 2, borderColor: '#F59E0B', elevation: 2 },
+  editRouteBtn: { marginLeft: 'auto', backgroundColor: '#F1F5F9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  editRouteBtnText: { color: '#3B82F6', fontSize: 12, fontWeight: 'bold' },
+  routeEditContainer: { marginTop: 10, padding: 12, backgroundColor: '#F8FAFC', borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' },
+  routeEditTitle: { fontSize: 14, fontWeight: 'bold', color: '#475569', marginBottom: 8 },
+  trackingActions: { marginTop: 20, borderTopWidth: 1, borderTopColor: '#E2E8F0', paddingTop: 20 },
+  mapLinkBtn: { backgroundColor: '#3B82F6', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12 },
+  mapLinkText: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginLeft: 10 },
+  trackingHeaderRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 16 },
+  liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginLeft: 10 },
+  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 6 },
+  liveText: { fontSize: 10, fontWeight: 'bold', color: '#B91C1C' }
 });

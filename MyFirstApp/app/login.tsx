@@ -39,7 +39,7 @@ export default function LoginScreen() {
       // ✅ Login successful — navigate to dashboard
       console.log('[DriverLogin] Success! Driver:', result.driver?.name);
       router.replace({
-        pathname: '/(dashboard)/map',
+        pathname: '/(dashboard)',
         params: { role: 'Driver', driverId: result.driver?.id },
       });
     } catch (error: any) {

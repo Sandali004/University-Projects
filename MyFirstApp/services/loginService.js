@@ -16,6 +16,14 @@ async function loginHelper(endpoint, email, password, tokenKey, dataKey) {
     const response = await api.post(endpoint, { email, password });
     const { token, user, message } = response.data;
 
+    // Clear all previous sessions to prevent role confusion
+    await AsyncStorage.removeItem('driverToken');
+    await AsyncStorage.removeItem('driverData');
+    await AsyncStorage.removeItem('parentToken');
+    await AsyncStorage.removeItem('parentData');
+    await AsyncStorage.removeItem('attendantToken');
+    await AsyncStorage.removeItem('attendantData');
+
     // Save session data locally
     if (token) {
       await AsyncStorage.setItem(tokenKey, token);

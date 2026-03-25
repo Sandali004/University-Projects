@@ -50,11 +50,11 @@ export default function DashboardLayout() {
         }}
       />
 
-      {/* Live Map tab — hidden for Parents, they view it in System */}
+      {/* Live Map tab — hidden for everyone, only accessible via System view */}
       <Tabs.Screen
         name="map"
         options={{
-          href: role === 'Parent' ? null : '/map',
+          href: null,
           title: 'Live Map',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons

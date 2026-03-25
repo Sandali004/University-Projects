@@ -11,6 +11,7 @@ import parentRoutes from "./Routes/parentRoutes.js";
 import attendantRoutes from "./Routes/attendantRoutes.js";
 import locationRoutes from "./Routes/locationRoutes.js";
 import systemRoutes from "./Routes/systemRoutes.js";
+import studentRoutes from "./Routes/studentRoutes.js";
 
 // Initialize the Express application
 const app = express();
@@ -25,6 +26,7 @@ app.use("/api/parent", parentRoutes);
 app.use("/api/attendant", attendantRoutes);
 app.use("/api/location", locationRoutes);
 app.use("/api/system", systemRoutes);
+app.use("/api/students", studentRoutes);
 
 // Start the server
 const PORT = process.env.PORT || 8000;

@@ -42,10 +42,10 @@ import { supabase } from '../../services/supabase'; // Direct Supabase connectio
 export default function MapScreen() {
   const router = useRouter();
 
-  // Read the 'role' and 'driverId' params passed from the login screens
-  const { role, driverId: paramDriverId } = useLocalSearchParams();
+  const { role: paramRole, driverId: paramDriverId } = useLocalSearchParams();
 
   // ── Shared state ──────────────────────────────────────────────
+  const [role, setRole] = useState<string | null>(paramRole as string || null);
   const [mapRegion, setMapRegion]   = useState<any>(null); // The map's visible region
   const [vanLocation, setVanLocation] = useState<any>(null); // Current lat/lng of the van
   const [statusText, setStatusText] = useState('Loading...');
@@ -259,15 +259,33 @@ export default function MapScreen() {
   // LIFECYCLE — runs once when the screen mounts
   // ════════════════════════════════════════════════════════════
   useEffect(() => {
-    if (role === 'Driver') {
-      initDriver();
-    } else if (role === 'Parent') {
-      setLoading(false); // Show map shell while fetching
-      initParent();
-    } else {
-      // Fallback: default to driver mode
-      initDriver();
-    }
+    const checkRoleAndInit = async () => {
+      let currentRole = role as string;
+      
+      // If role not passed in params, figure it out from storage
+      if (!currentRole) {
+        const parentData = await AsyncStorage.getItem('parentData');
+        const driverData = await AsyncStorage.getItem('driverData');
+        
+        if (parentData) {
+          currentRole = 'Parent';
+        } else if (driverData) {
+          currentRole = 'Driver';
+        } else {
+          currentRole = 'Driver'; // Fallback
+        }
+        setRole(currentRole);
+      }
+
+      if (currentRole === 'Driver') {
+        initDriver();
+      } else if (currentRole === 'Parent') {
+        setLoading(false); // Show map shell while fetching
+        initParent();
+      }
+    };
+
+    checkRoleAndInit();
 
     // CLEANUP — runs when the user leaves this screen
     return () => {

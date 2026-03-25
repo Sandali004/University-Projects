@@ -11,7 +11,7 @@ export const updateDriverLocation = async (req, res) => {
     const { driverId, latitude, longitude, timestamp } = req.body;
 
     // 2. Validate required fields
-    if (!driverId || !latitude || !longitude || !timestamp) {
+    if (!driverId || latitude == null || longitude == null || !timestamp) {
       return res.status(400).json({ 
         success: false,
         message: "Missing required location data. Please send driverId, latitude, longitude, and timestamp." 

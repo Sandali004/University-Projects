@@ -14,7 +14,7 @@ export const registerDriver = async (req, res) => {
     // Validate required fields
     const errors = [];
     if (!name || name.trim().length < 2)         errors.push("Full name is required (at least 2 characters).");
-    if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.");
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.(Ex : test@test.com)");
     if (!password || password.length < 6) errors.push("Password must be at least 6 characters long.");
 
     if (errors.length > 0) {

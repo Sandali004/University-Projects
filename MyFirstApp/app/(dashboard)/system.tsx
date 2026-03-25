@@ -45,9 +45,10 @@ export default function SystemScreen() {
   useEffect(() => {
     if (role === 'Parent' && system?.driver_id) {
       fetchDriverLocation(system.driver_id);
+      // Update every 10 seconds as requested
       refreshInterval.current = setInterval(() => {
         fetchDriverLocation(system.driver_id);
-      }, 5000);
+      }, 10000);
     }
     return () => {
       if (refreshInterval.current) clearInterval(refreshInterval.current);
@@ -55,18 +56,48 @@ export default function SystemScreen() {
   }, [role, system]);
 
   const fetchDriverLocation = async (driverId: string) => {
-    const { data, error } = await supabase
-      .from('transportation_systems')
-      .select('current_lat, current_lng')
-      .eq('driver_id', driverId)
-      .single();
+    console.log('[ParentSystem] Fetching driver location from table: transportation_systems');
+    console.log('[ParentSystem] Driver ID:', driverId);
+    
+    try {
+      const { data, error } = await supabase
+        .from('transportation_systems')
+        .select('current_lat, current_lng, name, updated_at')
+        .eq('driver_id', driverId)
+        .single();
 
-    if (!error && data?.current_lat && data?.current_lng) {
+      if (error) {
+        console.error('[ParentSystem] Query error:', error.code, error.message);
+        return;
+      }
+
+      if (!data) {
+        console.warn('[ParentSystem] No data returned for driver');
+        return;
+      }
+
+      console.log('[ParentSystem] Retrieved data:', data);
+
+      if (!data.current_lat || !data.current_lng) {
+        console.warn('[ParentSystem] Driver has no active location yet');
+        return;
+      }
+
       const lat = parseFloat(data.current_lat);
       const lng = parseFloat(data.current_lng);
+      
+      console.log(`[ParentSystem] Updating location: ${lat}, ${lng} from ${data.name}`);
+      
       setVanLocation({ latitude: lat, longitude: lng });
       setMapRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.01, longitudeDelta: 0.01 });
-      mapRef.current?.animateToRegion({ latitude: lat, longitude: lng, latitudeDelta: 0.005, longitudeDelta: 0.005 });
+      mapRef.current?.animateToRegion({ 
+        latitude: lat, 
+        longitude: lng, 
+        latitudeDelta: 0.005, 
+        longitudeDelta: 0.005 
+      });
+    } catch (err: any) {
+      console.error('[ParentSystem] Exception fetching location:', err);
     }
   };
 

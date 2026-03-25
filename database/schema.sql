@@ -21,9 +21,11 @@ CREATE TABLE routes (
 );
 
 -- 3. Transportation Systems table (formerly vans)
+-- This table stores BOTH static van information AND 
+-- the current dynamic live location of the driver.
 CREATE TABLE transportation_systems (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    driver_id UUID UNIQUE REFERENCES users(id),
+    driver_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     plate_number TEXT UNIQUE NOT NULL,
     vehicle_type TEXT,
@@ -40,8 +42,8 @@ CREATE TABLE transportation_systems (
 CREATE TABLE students (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
-    parent_id UUID REFERENCES users(id),
-    system_id UUID REFERENCES transportation_systems(id),
+    parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
     school TEXT,
     grade TEXT,
     pickup_location TEXT,
@@ -61,7 +63,7 @@ CREATE TABLE system_parents (
 -- 6. Attendance table
 CREATE TABLE attendance (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID REFERENCES students(id),
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     date DATE DEFAULT CURRENT_DATE,
     pickup BOOLEAN DEFAULT FALSE,
     drop_off BOOLEAN DEFAULT FALSE,
@@ -72,7 +74,7 @@ CREATE TABLE attendance (
 -- 7. Notifications table
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
     type TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -80,13 +82,12 @@ CREATE TABLE notifications (
 
 -- ============================================================
 -- AUTO-UPDATE TRIGGER for transportation_systems.updated_at
--- This ensures every time the driver's lat/lng is changed,
--- the updated_at column is automatically set to NOW().
--- The parent map screen sorts by updated_at to find the
--- most recently active driver — this trigger makes that work.
+-- This ensures the 'updated_at' column is refreshed every 
+-- time the GPS coordinates are saved, making it easy to 
+-- identify the most active drivers in real-time.
 -- ============================================================
 
--- Step 1: Create the trigger function (runs before each UPDATE)
+-- Step 1: Create the trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -95,7 +96,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 2: Attach the trigger to the transportation_systems table
+-- Step 2: Attach to transportation_systems
+DROP TRIGGER IF EXISTS set_transportation_systems_updated_at ON transportation_systems;
 CREATE TRIGGER set_transportation_systems_updated_at
 BEFORE UPDATE ON transportation_systems
 FOR EACH ROW

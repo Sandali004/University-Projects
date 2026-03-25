@@ -31,40 +31,74 @@ export default function MapScreen() {
   const driverIdRef          = useRef<string | null>(null); // The driver's user ID
 
   // DRIVER LOGIC
+  
   // saveLocationToSupabase
   // Called every time the GPS gives a new coordinate.
-  // UPSERT (insert or update) the position in the 'transportation_systems' table.
+  // Updates the position in the 'transportation_systems' table.
   const saveLocationToSupabase = async (latitude: number, longitude: number) => {
     const driverId = driverIdRef.current;
-    if (!driverId) return;
+    if (!driverId) {
+      console.warn('[DriverMap] No driver ID available');
+      return;
+    }
 
-    console.log(`[DriverMap] Saving location to Supabase: ${latitude}, ${longitude}`);
+    // Build the payload with all required fields
+    // Using 'Driver Location' as name since it's NOT NULL in transportation_systems
+    const payload = {
+      name: 'Driver Location',  // Required field (NOT NULL in schema)
+      current_lat: latitude,
+      current_lng: longitude,
+      updated_at: new Date().toISOString(),
+    };
 
-    // 'upsert' means: if a row with this driver_id already exists → update it
-    //                 if it does NOT exist yet → insert a new row
-    const { error } = await supabase
-      .from('transportation_systems')
-      .upsert(
-        {
-          driver_id:   driverId,
-          current_lat: latitude,
-          current_lng: longitude,
-        },
-        { onConflict: 'driver_id' } // match rows by driver_id for the update
-      );
+    console.log(`[DriverMap] Saving to table: transportation_systems`);
+    console.log(`[DriverMap] Driver ID: ${driverId}`);
+    console.log(`[DriverMap] Location: lat=${latitude}, lng=${longitude}`);
+    console.log(`[DriverMap] Payload:`, JSON.stringify(payload));
 
-    if (error) {
-      console.error('[DriverMap] Failed to save location:', error.message);
-    } else {
-      console.log('[DriverMap] Location saved ✓');
+    try {
+      // Using .update() with specific driver_id match
+      // This only modifies the location columns specified
+      const { error, data } = await supabase
+        .from('transportation_systems')
+        .update(payload)
+        .eq('driver_id', driverId)
+        .select();
+
+      if (error) {
+        console.error('[DriverMap] Supabase error code:', error.code);
+        console.error('[DriverMap] Supabase error message:', error.message);
+        console.error('[DriverMap] Supabase error details:', error);
+        setStatusText('Sync error: Database issue');
+      } else if (data && data.length > 0) {
+        console.log('[DriverMap] Location sync success ✓', data[0].updated_at);
+      } else {
+        console.warn('[DriverMap] Update returned no data');
+      }
+    } catch (err: any) {
+      console.error('[DriverMap] Exception during save:', err);
+      setStatusText('Sync error: Connection failed');
     }
   };
 
   // startTracking
-  // Begins the GPS stream and saves each position to Supabase.
   const startTracking = async () => {
     try {
-      // Ask for GPS permission first
+      // 1. Ensure a row exists for this driver in transportation_systems
+      const driverId = driverIdRef.current;
+      const { data: sysData, error: sysError } = await supabase
+        .from('transportation_systems')
+        .select('id, name')
+        .eq('driver_id', driverId)
+        .single();
+
+      if (sysError || !sysData) {
+         console.log('[DriverMap] System check fail:', sysError?.message);
+         Alert.alert('System Required', 'Please create your transportation system under the Dashboard first.');
+         return;
+      }
+
+      // 2. Start GPS
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Denied', 'Location permission is required to start tracking.');
@@ -78,39 +112,20 @@ export default function MapScreen() {
       try {
         const stored = await AsyncStorage.getItem('driverData');
         const driverName = stored ? JSON.parse(stored).name : 'The driver';
-        const sysId = paramDriverId || (stored ? JSON.parse(stored).id : null); 
-        // Note: systemId should ideally be the real UUID of the system, not driverId.
-        // But for now, our backend routes use systemId. Let's fetch it if needed or assume it's linked.
-        // Actually, let's just use the current system fetch logic if we have it.
-        if (sysId) {
-           // We need the system UUID. Let's get it from driverId.
-           const { data: sysData } = await supabase.from('transportation_systems').select('id').eq('driver_id', sysId).single();
-           if (sysData) {
-             await api.post(`/system/${sysData.id}/tracking/start`, { driverName });
-           }
-        }
+        await api.post(`/system/${sysData.id}/tracking/start`, { driverName });
       } catch (err) { console.log('Failed to send start notification'); }
 
-      // Start listening for GPS updates
+      // GPS Watcher
       locationSubscription.current = await Location.watchPositionAsync(
         {
-          accuracy:         Location.Accuracy.High, // High-accuracy GPS
-          timeInterval:     5000,                   // Update every 5 seconds
-          distanceInterval: 5,                      // Or if moved 5 meters
+          accuracy:         Location.Accuracy.High,
+          timeInterval:     10000,                  // 10 seconds check
+          distanceInterval: 10,
         },
         async (newLocation) => {
           const { latitude, longitude } = newLocation.coords;
-
-          // Update the local map and marker
           setVanLocation({ latitude, longitude });
-          setMapRegion({
-            latitude,
-            longitude,
-            latitudeDelta:  0.005,
-            longitudeDelta: 0.005,
-          });
-
-          // Smoothly pan the map to the new position
+          
           mapRef.current?.animateToRegion({
             latitude,
             longitude,
@@ -118,19 +133,16 @@ export default function MapScreen() {
             longitudeDelta: 0.005,
           });
 
-          // Save to Supabase so parents can see it
           await saveLocationToSupabase(latitude, longitude);
         }
       );
     } catch (e: any) {
       console.error('[DriverMap] Error starting tracking:', e.message);
-      Alert.alert('Error', 'Failed to start tracking. Please try again.');
       setIsTracking(false);
     }
   };
 
   // stopTracking
-  // Stops the GPS watcher and clears the tracking state.
   const stopTracking = () => {
     if (locationSubscription.current) {
       locationSubscription.current.remove();
@@ -139,11 +151,9 @@ export default function MapScreen() {
     setIsTracking(false);
     setStatusText('Tracking Stopped');
 
-    // Notify parents via backend
     (async () => {
       try {
-        const stored = await AsyncStorage.getItem('driverData');
-        const dId = paramDriverId || (stored ? JSON.parse(stored).id : null);
+        const dId = driverIdRef.current;
         if (dId) {
           const { data: sysData } = await supabase.from('transportation_systems').select('id').eq('driver_id', dId).single();
           if (sysData) {
@@ -155,28 +165,20 @@ export default function MapScreen() {
   };
 
   // initDriver
-  // Called once when the screen loads in Driver mode.
   const initDriver = async () => {
     setLoading(false);
-
-    // Get the driver's user ID — first try the URL param, then AsyncStorage
     let driverId = paramDriverId as string | null;
     if (!driverId) {
       const stored = await AsyncStorage.getItem('driverData');
       if (stored) driverId = JSON.parse(stored).id;
     }
-
     if (!driverId) {
-      Alert.alert('Error', 'Could not find your driver profile. Please log in again.');
       router.replace('/login');
       return;
     }
-
-    // Store in ref so the GPS callback can use it without stale closure issues
     driverIdRef.current = driverId;
-    console.log('[DriverMap] Driver ID:', driverId);
+    console.log('[DriverMap] Driver active:', driverId);
 
-    // Get one initial location to centre the map before starting the watcher
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status === 'granted') {
@@ -185,114 +187,98 @@ export default function MapScreen() {
         setVanLocation({ latitude, longitude });
         setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
       }
-    } catch (_) { /* first-time location optional, tracking will start anyway */ }
-
-    // Let the driver click "Start Tracking" manually
+    } catch (_) {}
   };
 
   // PARENT LOGIC
+  
   // fetchDriverLocation
-  // Reads the latest (most recently updated) driver position from 'transportation_systems'.
   const fetchDriverLocation = async () => {
-    console.log('[ParentMap] Fetching driver location from Supabase...');
+    console.log('[ParentMap] Refreshing location from table: transportation_systems');
 
-    // Get the most recently updated van record
-    // (You can filter by a specific driver if you store the driver link in parents table)
-    const { data, error } = await supabase
-      .from('transportation_systems')
-      .select('current_lat, current_lng, driver_id')
-      .not('current_lat', 'is', null)   // Only rows that actually have a location
-      .not('current_lng', 'is', null)
-      .order('updated_at', { ascending: false }) // Most recently updated first
-      .limit(1)                                   // We only need one van for now
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from('transportation_systems')
+        .select('current_lat, current_lng, updated_at, name, driver_id')
+        .not('current_lat', 'is', null) 
+        .order('updated_at', { ascending: false }) 
+        .limit(1)
+        .single();
 
-    if (error || !data) {
-      console.log('[ParentMap] No van location available yet:', error?.message);
-      setStatusText('No driver is active right now');
-      return;
+      if (error) {
+        console.error('[ParentMap] Query error code:', error.code);
+        console.error('[ParentMap] Query error message:', error.message);
+        setStatusText('No drivers active at this time');
+        return;
+      }
+
+      if (!data) {
+        console.warn('[ParentMap] No active driver data returned');
+        setStatusText('No drivers active at this time');
+        return;
+      }
+
+      console.log('[ParentMap] Retrieved data:', data);
+      console.log('[ParentMap] Last update:', data.updated_at);
+
+      const lat = parseFloat(data.current_lat);
+      const lng = parseFloat(data.current_lng);
+
+      console.log(`[ParentMap] Van location: lat=${lat}, lng=${lng}`);
+
+      setVanLocation({ latitude: lat, longitude: lng });
+      setMapRegion(prev => prev || {
+        latitude:      lat,
+        longitude:     lng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+      
+      setStatusText(`${data.name || 'Van'} is live ✓`);
+      setLoading(false);
+
+      mapRef.current?.animateToRegion({
+        latitude:      lat,
+        longitude:     lng,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      });
+    } catch (err: any) {
+      console.error('[ParentMap] Exception fetching location:', err);
+      setStatusText('Error fetching location');
     }
-
-    const lat = parseFloat(data.current_lat);
-    const lng = parseFloat(data.current_lng);
-
-    console.log(`[ParentMap] Got location: ${lat}, ${lng}`);
-
-    setVanLocation({ latitude: lat, longitude: lng });
-    setMapRegion({
-      latitude:      lat,
-      longitude:     lng,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    });
-    setStatusText('Driver location found ✓');
-    setLoading(false);
-
-    // Pan the map to the driver's position
-    mapRef.current?.animateToRegion({
-      latitude:      lat,
-      longitude:     lng,
-      latitudeDelta: 0.005,
-      longitudeDelta: 0.005,
-    });
   };
 
   // initParent
-  // Called once when the screen loads in Parent mode.
   const initParent = async () => {
-    setStatusText('Loading driver location...');
-
-    // Fetch immediately
+    setStatusText('Locating school vehicle...');
     await fetchDriverLocation();
-
-    // Then refresh every 5 seconds automatically
     refreshInterval.current = setInterval(() => {
       fetchDriverLocation();
-    }, 5000);
+    }, 10000); 
   };
 
-  // LIFECYCLE — runs once when the screen mounts
+  // LIFECYCLE
   useEffect(() => {
     const checkRoleAndInit = async () => {
       let currentRole = role as string;
-      
-      // If role not passed in params, figure it out from storage
       if (!currentRole) {
         const parentData = await AsyncStorage.getItem('parentData');
         const driverData = await AsyncStorage.getItem('driverData');
-        
-        if (parentData) {
-          currentRole = 'Parent';
-        } else if (driverData) {
-          currentRole = 'Driver';
-        } else {
-          currentRole = 'Driver'; // Fallback
-        }
+        currentRole = parentData ? 'Parent' : 'Driver';
         setRole(currentRole);
       }
-
       if (currentRole === 'Driver') {
         initDriver();
       } else if (currentRole === 'Parent') {
-        setLoading(false); // Show map shell while fetching
+        setLoading(false);
         initParent();
       }
     };
-
     checkRoleAndInit();
-
-    // CLEANUP — runs when the user leaves this screen
     return () => {
-      // Stop GPS watcher
-      if (locationSubscription.current) {
-        locationSubscription.current.remove();
-        locationSubscription.current = null;
-      }
-      // Stop auto-refresh timer
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-        refreshInterval.current = null;
-      }
+      if (locationSubscription.current) locationSubscription.current.remove();
+      if (refreshInterval.current) clearInterval(refreshInterval.current);
     };
   }, []);
 
@@ -304,25 +290,22 @@ export default function MapScreen() {
   return (
     <View style={styles.container}>
 
-      {/* MAP — show once we have a region to display */}
       {mapRegion ? (
         <MapView
           ref={mapRef}
           style={styles.map}
           initialRegion={mapRegion}
-          showsUserLocation={false}
         >
-          {/* Van marker — shown only when we have a position */}
           {vanLocation && (
             <Marker
               coordinate={vanLocation}
-              title={isDriver ? 'My Van' : 'School Van'}
-              description={isDriver ? 'Your live location' : "Driver's live location"}
+              title={isDriver ? 'My Position' : 'School Van'}
+              description={isDriver ? 'Synchronizing live' : "Tracking driver location"}
             >
               <View style={[styles.markerContainer, { borderColor: isDriver ? '#3B82F6' : '#F59E0B' }]}>
                 <MaterialCommunityIcons
                   name="van-passenger"
-                  size={30}
+                  size={32}
                   color={isDriver ? '#3B82F6' : '#F59E0B'}
                 />
               </View>
@@ -330,19 +313,16 @@ export default function MapScreen() {
           )}
         </MapView>
       ) : (
-        // Loading placeholder
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
           <Text style={styles.loadingText}>
-            {isParent ? 'Looking for driver location...' : 'Loading map...'}
+            {isParent ? 'Synchronizing with Driver GPS...' : 'Loading location services...'}
           </Text>
         </View>
       )}
 
-      {/* BOTTOM CONTROL CARD — floating over the map */}
+      {/* Control Card */}
       <View style={styles.controlContainer}>
-
-        {/* Status row with coloured dot */}
         <View style={styles.statusRow}>
           <View style={[
             styles.statusDot,
@@ -353,46 +333,36 @@ export default function MapScreen() {
           ]} />
           <Text style={styles.statusText}>
             {isDriver
-              ? (isTracking ? '🟢 Live Tracking Active' : '🔴 Tracking Stopped')
+              ? (isTracking ? '🟢 Sending GPS (10s pulse)' : '🔴 Location Stopped')
               : (vanLocation ? `🟢 ${statusText}` : `🟡 ${statusText}`)
             }
           </Text>
         </View>
 
-        {/* Show current coordinates */}
-        {vanLocation && (
-          <Text style={styles.coordsText}>
-            📍 {vanLocation.latitude.toFixed(6)}, {vanLocation.longitude.toFixed(6)}
-          </Text>
-        )}
-
-        {/* DRIVER: Start / Stop Tracking button */}
         {isDriver && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: isTracking ? '#EF4444' : '#3B82F6' }]}
             onPress={isTracking ? stopTracking : startTracking}
           >
             <Text style={styles.actionButtonText}>
-              {isTracking ? '⏹ Stop Tracking' : '▶ Start Tracking'}
+              {isTracking ? '⏹ Stop Live Location' : '▶ Start Live Location'}
             </Text>
           </TouchableOpacity>
         )}
 
-        {/* PARENT: Manual Refresh button */}
         {isParent && (
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: '#10B981' }]}
             onPress={fetchDriverLocation}
           >
-            <Text style={styles.actionButtonText}>🔄 Refresh Location</Text>
+            <Text style={styles.actionButtonText}>🔄 Force GPS Refresh</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* ROLE BADGE — top left corner */}
       <View style={[styles.roleBadge, { backgroundColor: isDriver ? '#3B82F6' : '#10B981' }]}>
         <Text style={styles.roleBadgeText}>
-          {isDriver ? '🚐 Driver View' : '👨‍👩‍👧 Parent View'}
+          {isDriver ? '🚐 DRIVE MODE' : '👨‍👩‍👧 PARENT MODE'}
         </Text>
       </View>
 
@@ -400,99 +370,47 @@ export default function MapScreen() {
   );
 }
 
-// STYLES
 const styles = StyleSheet.create({
   container:       { flex: 1 },
   map:             { flex: 1 },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    gap: 16,
-  },
-  loadingText: { fontSize: 16, color: '#64748B', marginTop: 12 },
-
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC' },
+  loadingText: { fontSize: 16, color: '#64748B', marginTop: 15, fontWeight: '600' },
   markerContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 6,
-    borderWidth: 2,
+    borderRadius: 30,
+    padding: 8,
+    borderWidth: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 6,
   },
-
   controlContainer: {
     position:        'absolute',
-    bottom:          30,
-    left:            16,
-    right:           16,
+    bottom:          40,
+    left:            20,
+    right:           20,
     backgroundColor: '#FFFFFF',
     borderRadius:    20,
     padding:         20,
     shadowColor:     '#000',
     shadowOffset:    { width: 0, height: 6 },
-    shadowOpacity:   0.12,
+    shadowOpacity:   0.15,
     shadowRadius:    12,
     elevation:       8,
   },
-
-  statusRow: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    marginBottom:   12,
-  },
-  statusDot: {
-    width:        12,
-    height:       12,
-    borderRadius: 6,
-    marginRight:  10,
-  },
-  statusText: {
-    fontSize:   15,
-    fontWeight: '600',
-    color:      '#1E293B',
-    flex:       1,
-    flexWrap:   'wrap',
-  },
-  coordsText: {
-    fontSize:     12,
-    color:        '#64748B',
-    marginBottom: 14,
-    fontFamily:   'monospace',
-  },
-
-  actionButton: {
-    paddingVertical: 14,
-    borderRadius:    12,
-    alignItems:      'center',
-  },
-  actionButtonText: {
-    color:      '#FFFFFF',
-    fontSize:   16,
-    fontWeight: 'bold',
-  },
-
+  statusRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  statusDot: { width: 12, height: 12, borderRadius: 6, marginRight: 10 },
+  statusText: { fontSize: 15, fontWeight: 'bold', color: '#1E293B' },
+  actionButton: { paddingVertical: 15, borderRadius: 12, alignItems: 'center' },
+  actionButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900' },
   roleBadge: {
     position:     'absolute',
-    top:          50,
-    left:         16,
-    paddingHorizontal: 14,
-    paddingVertical:    7,
-    borderRadius: 20,
-    shadowColor:  '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation:    4,
+    top:          60,
+    left:         20,
+    paddingHorizontal: 15,
+    paddingVertical:    8,
+    borderRadius: 18,
   },
-  roleBadgeText: {
-    color:      '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize:   13,
-  },
+  roleBadgeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 12, letterSpacing: 1 },
 });

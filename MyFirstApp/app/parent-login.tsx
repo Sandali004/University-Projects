@@ -2,12 +2,17 @@ import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
+  Image, SafeAreaView, StatusBar, KeyboardAvoidingView,
+  Platform, ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { loginParent } from '../services/loginService';
 
+const BANNER_IMG = require('../assets/images/bus_banner.png');
+
 export default function ParentLoginScreen() {
-  const [identifier, setIdentifier] = useState(''); // email OR username
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword]     = useState('');
   const [loading, setLoading]       = useState(false);
   const router = useRouter();
@@ -20,84 +25,123 @@ export default function ParentLoginScreen() {
 
     setLoading(true);
     try {
-      console.log('[ParentLogin] Attempting login for:', identifier.trim());
-
       const result: any = await loginParent(identifier, password);
-
       if (!result.success) {
-        console.log('[ParentLogin] Failed:', result.message);
         Alert.alert('Login Failed', result.message);
         return;
       }
-
-      console.log('[ParentLogin] Success! Parent:', result.parent?.name);
       router.replace({
         pathname: '/(dashboard)',
         params: { role: 'Parent', parentId: result.parent?.id },
       });
     } catch (error: any) {
-      const msg = error.message || 'An unexpected error occurred. Please try again.';
-      console.error('[ParentLogin] Unexpected error:', msg);
-      Alert.alert('Login Error', msg);
+      Alert.alert('Login Error', error.message || 'Error occurred');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Parent Portal</Text>
-        <Text style={styles.subtitle}>Log in to track your child's vehicle</Text>
-      </View>
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} bounces={false}>
+          
+          <View style={styles.bannerContainer}>
+            <Image source={BANNER_IMG} style={styles.bannerImage} resizeMode="cover" />
+            <View style={styles.overlay}>
+              <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={24} color="#fff" />
+              </TouchableOpacity>
+              <View style={styles.headerTextWrapper}>
+                <Text style={styles.title}>Parent Portal</Text>
+                <Text style={styles.subtitle}>Welcome back! Real-time peace of mind.</Text>
+              </View>
+            </View>
+          </View>
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Email or Username</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your email or username"
-          placeholderTextColor="#94A3B8"
-          value={identifier}
-          onChangeText={setIdentifier}
-          keyboardType="default"
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+          <View style={styles.loginCardWrapper}>
+            <View style={styles.loginCard}>
+              <Text style={styles.formTitle}>Parent Login</Text>
+              <Text style={styles.formDesc}>Track your child's vehicle and manage attendance alerts safely.</Text>
+              
+              <View style={styles.inputGroup}>
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Email or Username"
+                    placeholderTextColor="#94A3B8"
+                    value={identifier}
+                    onChangeText={setIdentifier}
+                    autoCapitalize="none"
+                  />
+                </View>
 
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your password"
-          placeholderTextColor="#94A3B8"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={true}
-        />
+                <View style={styles.inputWrapper}>
+                  <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Password"
+                    placeholderTextColor="#94A3B8"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry
+                  />
+                </View>
+              </View>
 
-        <TouchableOpacity
-          style={[styles.loginButton, loading && styles.loginButtonDisabled]}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading
-            ? <ActivityIndicator color="#fff" />
-            : <Text style={styles.loginButtonText}>Login</Text>
-          }
-        </TouchableOpacity>
-      </View>
-    </View>
+              <TouchableOpacity
+                style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                {loading
+                  ? <ActivityIndicator color="#fff" />
+                  : <View style={styles.btnContent}>
+                      <Text style={styles.loginBtnText}>LOGIN TO PORTAL</Text>
+                      <Ionicons name="chevron-forward" size={18} color="#fff" />
+                    </View>
+                }
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.forgotBtn} onPress={() => Alert.alert('Help', 'Please contact admin to reset password.')}>
+                <Text style={styles.forgotText}>Forgot Password?</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container:           { flex: 1, backgroundColor: '#F8FAFC', justifyContent: 'center', padding: 24 },
-  header:              { marginBottom: 40 },
-  title:               { fontSize: 32, fontWeight: 'bold', color: '#1E293B', marginBottom: 8 },
-  subtitle:            { fontSize: 16, color: '#64748B' },
-  form:                { backgroundColor: '#FFFFFF', padding: 24, borderRadius: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  label:               { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 6 },
-  input:               { backgroundColor: '#F1F5F9', padding: 16, borderRadius: 12, fontSize: 16, marginBottom: 16, color: '#1E293B' },
-  loginButton:         { backgroundColor: '#10B981', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
-  loginButtonDisabled: { backgroundColor: '#6EE7B7' },
-  loginButtonText:     { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
+  safeArea: { flex: 1, backgroundColor: '#FFFFFF' },
+  scrollContent: { flexGrow: 1 },
+  bannerContainer: { height: 320, position: 'relative' },
+  bannerImage: { width: '100%', height: '100%' },
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(11, 85, 59, 0.45)', padding: 30, justifyContent: 'space-between' },
+  backBtn: { marginTop: 40, width: 45, height: 45, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  headerTextWrapper: { marginBottom: 40 },
+  title: { fontSize: 36, fontWeight: '900', color: '#FFFFFF' },
+  subtitle: { fontSize: 16, color: '#F1F5F9', fontWeight: '500', opacity: 0.9, marginTop: 4 },
+  loginCardWrapper: { marginTop: -50, paddingHorizontal: 25, flex: 1 },
+  loginCard: { backgroundColor: '#FFFFFF', borderRadius: 32, padding: 30, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.08, shadowRadius: 20, elevation: 12 },
+  formTitle: { fontSize: 24, fontWeight: '900', color: '#1E293B', marginBottom: 5 },
+  formDesc: { fontSize: 13, color: '#64748B', lineHeight: 20, marginBottom: 25 },
+  inputGroup: { gap: 15, marginBottom: 25 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', paddingHorizontal: 15 },
+  inputIcon: { marginRight: 12 },
+  input: { flex: 1, paddingVertical: 18, fontSize: 16, color: '#1E293B', fontWeight: '500' },
+  loginBtn: { backgroundColor: '#10B981', borderRadius: 20, paddingVertical: 18, alignItems: 'center', shadowColor: '#10B981', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15, elevation: 8 },
+  loginBtnDisabled: { opacity: 0.6 },
+  btnContent: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  loginBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  forgotBtn: { marginTop: 20, alignSelf: 'center' },
+  forgotText: { color: '#64748B', fontWeight: 'bold', fontSize: 14 },
 });

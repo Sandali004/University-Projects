@@ -8,6 +8,7 @@ import { supabase } from "../utils/supabase.js";
 // ─────────────────────────────────────────────────────────
 export const registerParent = async (req, res) => {
   try {
+    console.log("[Backend] registerParent body:", req.body);
     const { name, email, password } = req.body;
 
     const errors = [];
@@ -49,7 +50,11 @@ export const registerParent = async (req, res) => {
 
   } catch (error) {
     console.error("Unexpected error (registerParent):", error);
-    return res.status(500).json({ message: "Server error during registration.", error: error.message });
+    return res.status(500).json({ 
+      message: "Server error during registration.", 
+      error: error.message,
+      details: error
+    });
   }
 };
 
@@ -93,7 +98,7 @@ export const loginParent = async (req, res) => {
     return res.status(200).json({
       message: "Login successful!",
       token,
-      parent: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }, // changed 'parent' to 'user'
     });
 
   } catch (error) {

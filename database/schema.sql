@@ -42,6 +42,7 @@ CREATE TABLE students (
     name TEXT NOT NULL,
     parent_id UUID REFERENCES users(id),
     system_id UUID REFERENCES transportation_systems(id),
+    school TEXT,
     grade TEXT,
     pickup_location TEXT,
     dropoff_location TEXT,

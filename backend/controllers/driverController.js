@@ -5,14 +5,13 @@ import { supabase } from "../utils/supabase.js";
 // Function: Register a new driver
 export const registerDriver = async (req, res) => {
   try {
-    const { name, email, password, plateNumber, role = 'driver' } = req.body;
+    const { name, email, password, role = 'driver' } = req.body;
 
     // 1. Structural Validation
     const errors = [];
     if (!name || name.trim().length < 2) errors.push("Full name is required (at least 2 characters).");
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.");
     if (!password || password.length < 6) errors.push("Password must be at least 6 characters long.");
-    if (!plateNumber || plateNumber.trim().length < 3) errors.push("Valid vehicle plate number is required.");
 
     if (errors.length > 0) {
       return res.status(400).json({ 
@@ -21,8 +20,7 @@ export const registerDriver = async (req, res) => {
         validParameters: {
           name: "Text (min 2 chars)",
           email: "Valid email format",
-          password: "Text (min 6 chars)",
-          plateNumber: "Text (e.g., WP-ABC-1234)"
+          password: "Text (min 6 chars)"
         }
       });
     }
@@ -45,20 +43,7 @@ export const registerDriver = async (req, res) => {
       throw userError;
     }
 
-    // 4. Insert into vans table
-    const { error: vanError } = await supabase
-      .from('vans')
-      .insert([{ driver_id: userData.id, plate_number: plateNumber }]);
-
-    if (vanError) {
-      if (vanError.code === '23505') {
-        // Cleanup created user if van creation fails due to duplicate plate
-        await supabase.from('users').delete().eq('id', userData.id);
-        return res.status(409).json({ message: "This vehicle plate number is already registered by another driver." });
-      }
-      throw vanError;
-    }
-
+    // 4. Send Success Response
     res.status(201).json({ message: "Driver registered successfully.", user: userData });
   } catch (error) {
     console.error("Registration Error:", error);

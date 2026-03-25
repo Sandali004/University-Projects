@@ -1,16 +1,16 @@
-import memoryLocations from "../models/Location.js";
+import { supabase } from "../utils/supabase.js";
 
 // Controller function: updateDriverLocation
 // 1. Accepts data from req.body
 // 2. Validates required fields
-// 3. Saves or updates the driver’s latest location
+// 3. Saves or updates the driver’s latest location in Supabase
 // 4. Returns a success response
 export const updateDriverLocation = async (req, res) => {
   try {
     // 1. Accept data from the incoming request body
     const { driverId, latitude, longitude, timestamp } = req.body;
 
-    // 2. Validate required fields (never trust user input directly)
+    // 2. Validate required fields
     if (!driverId || !latitude || !longitude || !timestamp) {
       return res.status(400).json({ 
         success: false,
@@ -18,26 +18,19 @@ export const updateDriverLocation = async (req, res) => {
       });
     }
 
-    // 3. In-memory temporary database logic (Replace with MongoDB locationSchema.findOneAndUpdate later if needed)
-    // Check if driver has already sent a location point before
-    const existingIndex = memoryLocations.findIndex(loc => loc.driverId === driverId);
+    // 3. Update in Supabase
+    // Note: We use the transportation_systems table to track the latest location of the driver/vehicle
+    const { error } = await supabase
+      .from('transportation_systems')
+      .update({ current_lat: latitude, current_lng: longitude })
+      .eq('driver_id', driverId);
 
-    if (existingIndex !== -1) {
-      // Driver exists -> Update the driver's latest location
-      memoryLocations[existingIndex] = { driverId, latitude, longitude, timestamp };
-    } else {
-      // Driver is new -> Save a brand new location entry
-      memoryLocations.push({ driverId, latitude, longitude, timestamp });
-    }
-
-    // Print a simple clean log to terminal confirming update happened securely
-    console.log(`[Live Location] Updated for Driver: ${driverId} ` +
-                `| Lat: ${latitude} | Lng: ${longitude} | Time: ${timestamp}`);
+    if (error) throw error;
 
     // 4. Return a successful, structured response back to the React Native app
     return res.status(200).json({ 
       success: true, 
-      message: "Driver live location updated successfully in memory.",
+      message: "Driver live location updated successfully.",
       data: { driverId, latitude, longitude, timestamp }
     });
 

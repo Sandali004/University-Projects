@@ -17,10 +17,6 @@ const questions: Question[] = [
   { id: 'email', type: 'email', text: 'What is your email address?' },
   { id: 'password', type: 'password', text: 'Please enter a secure password.' },
   { id: 'licenseNumber', type: 'text', text: 'What is your driving license number?' },
-  { id: 'vehicleType', type: 'choice', text: 'What is your vehicle type?', options: ['Car', 'Van', 'Bus'] },
-  { id: 'vehicleNumber', type: 'text', text: 'What is your vehicle number?' },
-  { id: 'seatCount', type: 'number', text: 'How many seats are in the vehicle?' },
-  { id: 'route', type: 'text', text: 'What is your route? (e.g., Colombo - Kandy)' },
   { id: 'emergencyContact', type: 'phone', text: 'Finally, what is your emergency contact number?' },
 ];
 
@@ -48,30 +44,7 @@ export default function DriverRegistration() {
 
     const currentQ = questions[currentStep];
 
-    // 2. Seat validation logic (Specific to driver)
-    if (currentQ.id === 'seatCount') {
-      const seats = parseInt(value, 10);
-      const vehicleType = formData.vehicleType;
-      
-      // Ensure it's a number
-      if (isNaN(seats)) {
-        Alert.alert('Invalid', 'Please enter a valid number.');
-        return;
-      }
-      // Business rules for vehicle capacity
-      if (vehicleType === 'Car' && (seats < 4 || seats > 6)) {
-        Alert.alert('Validation Error', 'Car seat count must be between 4 and 6.');
-        return; // Stops here, asks again
-      }
-      if (vehicleType === 'Van' && (seats < 8 || seats > 15)) {
-        Alert.alert('Validation Error', 'Van seat count must be between 8 and 15.');
-        return;
-      }
-      if (vehicleType === 'Bus' && (seats < 20 || seats > 50)) {
-        Alert.alert('Validation Error', 'Bus seat count must be between 20 and 50.');
-        return;
-      }
-    }
+    // No seat validation needed now as it's moved to system creation
 
     // 3. Add the user's valid answer to the chat history array
     const newMessages = [...messages, { id: Date.now().toString(), sender: 'user', text: value }];
@@ -116,7 +89,6 @@ export default function DriverRegistration() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        plateNumber: formData.vehicleNumber, // Mapping vehicleNumber to plateNumber
         role: 'driver'
       };
 

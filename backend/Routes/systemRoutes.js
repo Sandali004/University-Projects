@@ -1,10 +1,12 @@
+import express from "express";
 import { 
   createSystem, 
   getSystem, 
   joinSystem, 
   getSystemParents, 
   removeParent,
-  getRoutes
+  getRoutes,
+  getParentSystem
 } from "../controllers/systemController.js";
 
 const router = express.Router();

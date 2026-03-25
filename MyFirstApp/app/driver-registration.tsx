@@ -1,7 +1,6 @@
 // ============================================================
-// Driver Registration - Chatbot Screen
-// Collects driver info step-by-step and saves DIRECTLY to Supabase
-// No backend server required — works on any internet connection
+// Driver Login Screen
+// Authenticates via Backend API
 // ============================================================
 import React, { useState, useRef, useEffect } from 'react';
 import {
@@ -115,7 +114,7 @@ export default function DriverRegistration() {
       }
 
       // ✅ Success!
-      console.log('[DriverReg] Registration success!', result.data?.id);
+      console.log('[DriverReg] Registration success!', result.user?.id);
       Alert.alert('🎉 Registered!', 'Driver registered successfully! You can now log in.', [
         { text: 'Go to Login', onPress: () => router.push('/login') },
       ]);

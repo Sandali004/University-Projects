@@ -8,6 +8,7 @@ import { supabase } from "../utils/supabase.js";
 // ─────────────────────────────────────────────────────────
 export const registerAttendant = async (req, res) => {
   try {
+    console.log("[Backend] registerAttendant body:", req.body);
     const { name, email, password } = req.body;
 
     const errors = [];
@@ -49,7 +50,11 @@ export const registerAttendant = async (req, res) => {
 
   } catch (error) {
     console.error("Unexpected error (registerAttendant):", error);
-    return res.status(500).json({ message: "Server error during registration.", error: error.message });
+    return res.status(500).json({ 
+      message: "Server error during registration.", 
+      error: error.message,
+      details: error
+    });
   }
 };
 
@@ -93,7 +98,7 @@ export const loginAttendant = async (req, res) => {
     return res.status(200).json({
       message: "Login successful!",
       token,
-      attendant: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }, // changed 'attendant' to 'user'
     });
 
   } catch (error) {

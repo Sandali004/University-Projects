@@ -276,11 +276,31 @@ export default function MapScreen() {
         </View>
 
         {isDriver && (
+          <View style={styles.coordinatesCard}>
+            {vanLocation ? (
+              <View style={styles.coordsRow}>
+                <View style={styles.coordItem}>
+                  <Text style={styles.coordLabel}>LATITUDE</Text>
+                  <Text style={styles.coordValue}>{vanLocation.latitude.toFixed(4)}°</Text>
+                </View>
+                <View style={styles.vDivider} />
+                <View style={styles.coordItem}>
+                  <Text style={styles.coordLabel}>LONGITUDE</Text>
+                  <Text style={styles.coordValue}>{vanLocation.longitude.toFixed(4)}°</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.noCoordsText}>Location not available</Text>
+            )}
+          </View>
+        )}
+
+        {isDriver && (
           <TouchableOpacity 
             style={[styles.btn, { backgroundColor: isTracking ? '#EF4444' : '#3B82F6' }]} 
             onPress={isTracking ? stopTracking : startTracking}
           >
-            <Text style={styles.btnText}>{isTracking ? 'Stop Live Sync' : 'Start Live Location'}</Text>
+            <Text style={styles.btnText}>{isTracking ? 'Stop Live Location' : 'Start Live Location'}</Text>
           </TouchableOpacity>
         )}
 
@@ -311,6 +331,20 @@ const styles = StyleSheet.create({
   statusTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
   btn: { paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
   btnText: { color: '#fff', fontWeight: '900', fontSize: 16 },
+  coordinatesCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  coordsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  coordItem: { alignItems: 'center' },
+  coordLabel: { fontSize: 9, fontWeight: '800', color: '#94A3B8', marginBottom: 2 },
+  coordValue: { fontSize: 15, fontWeight: '900', color: '#334155' },
+  vDivider: { width: 1, height: 20, backgroundColor: '#E2E8F0' },
+  noCoordsText: { textAlign: 'center', color: '#94A3B8', fontSize: 13, fontWeight: '600' },
   noLocationBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10 },
   noLocationText: { color: '#64748B', fontSize: 13 },
   badge: { position: 'absolute', top: 60, left: 20, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 100 },

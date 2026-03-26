@@ -194,9 +194,9 @@ export const updateSystemRoute = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────
+
 // START TRACKING NOTIFY
-// ─────────────────────────────────────────────────────────
+
 export const startTrackingNotify = async (req, res) => {
   try {
     const { systemId } = req.params;
@@ -231,9 +231,9 @@ export const startTrackingNotify = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────────────────
+
 // STOP TRACKING NOTIFY
-// ─────────────────────────────────────────────────────────
+
 export const stopTrackingNotify = async (req, res) => {
   try {
     const { systemId } = req.params;

@@ -1,32 +1,3 @@
-// ============================================================
-// map.tsx — Smart Map Screen (Driver + Parent)
-//
-// HOW IT WORKS:
-//   This single screen shows different behaviour depending on
-//   who is logged in (passed as the 'role' URL param):
-//
-//   role = 'Driver':
-//     - Requests GPS permission
-//     - Tracks the phone's real-time location
-//     - Every 5 seconds, saves lat/lng to the 'transportation_systems' table in
-//       Supabase (matched by driver_id)
-//     - Shows a blue van marker on the map showing the driver's
-//       own live position
-//
-//   role = 'Parent':
-//     - Does NOT use GPS or request any permissions
-//     - Fetches the driver's current lat/lng from the 'transportation_systems'
-//       table in Supabase
-//     - Refreshes that location every 5 seconds automatically
-//     - Shows a yellow school-bus marker at the driver's position
-//
-// SUPABASE TABLES USED:
-//   transportation_systems — columns: driver_id, current_lat, current_lng
-//   users — used to find which driver a parent is linked to
-//           (for simplicity, this version fetches the LATEST
-//            active driver from the transportation_systems table)
-// ============================================================
-
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
@@ -35,134 +6,93 @@ import {
 import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { supabase } from '../../services/supabase'; // Direct Supabase connection
+import { supabase } from '../../services/supabase';
 import api from '../../services/api';
 
 export default function MapScreen() {
   const router = useRouter();
-
   const { role: paramRole, driverId: paramDriverId } = useLocalSearchParams();
 
-  // ── Shared state ──────────────────────────────────────────────
+  // Shared state
   const [role, setRole] = useState<string | null>(paramRole as string || null);
-  const [mapRegion, setMapRegion]   = useState<any>(null); // The map's visible region
-  const [vanLocation, setVanLocation] = useState<any>(null); // Current lat/lng of the van
-  const [statusText, setStatusText] = useState('Loading...');
-  const [isTracking, setIsTracking] = useState(false); // Driver only
+  const [mapRegion, setMapRegion]   = useState<any>(null);
+  const [vanLocation, setVanLocation] = useState<any>(null);
+  const [statusText, setStatusText] = useState('Initializing...');
+  const [isTracking, setIsTracking] = useState(false);
   const [loading, setLoading]       = useState(true);
 
-  // Refs that survive re-renders without causing them
+  // Refs for persistent data
   const mapRef               = useRef<any>(null);
-  const locationSubscription = useRef<any>(null); // GPS watcher (driver only)
-  const refreshInterval      = useRef<any>(null); // Auto-refresh timer (parent only)
-  const driverIdRef          = useRef<string | null>(null); // The driver's user ID
+  const locationSubscription = useRef<any>(null);
+  const refreshInterval      = useRef<any>(null);
+  const driverIdRef          = useRef<string | null>(null);
+  const trackingSystemIdRef  = useRef<string | null>(null); // The specific van ID the parent is tracking
 
-  // ════════════════════════════════════════════════════════════
-  // DRIVER LOGIC
-  // ════════════════════════════════════════════════════════════
-
-  // saveLocationToSupabase
-  // Called every time the GPS gives a new coordinate.
-  // UPSERT (insert or update) the position in the 'transportation_systems' table.
+  // --- DRIVER LOGIC ---
   const saveLocationToSupabase = async (latitude: number, longitude: number) => {
     const driverId = driverIdRef.current;
     if (!driverId) return;
 
-    console.log(`[DriverMap] Saving location to Supabase: ${latitude}, ${longitude}`);
-
-    // 'upsert' means: if a row with this driver_id already exists → update it
-    //                 if it does NOT exist yet → insert a new row
-    const { error } = await supabase
-      .from('transportation_systems')
-      .upsert(
-        {
-          driver_id:   driverId,
+    try {
+      // Update only the specific driver's van row
+      const { error } = await supabase
+        .from('transportation_systems')
+        .update({
           current_lat: latitude,
           current_lng: longitude,
-        },
-        { onConflict: 'driver_id' } // match rows by driver_id for the update
-      );
+          updated_at: new Date().toISOString()
+        })
+        .eq('driver_id', driverId);
 
-    if (error) {
-      console.error('[DriverMap] Failed to save location:', error.message);
-    } else {
-      console.log('[DriverMap] Location saved ✓');
+      if (error) console.error('[DriverMap] Save error:', error.message);
+      else console.log('[DriverMap] Location sync success ✓');
+    } catch (err) {
+      console.error('[DriverMap] Sync failed:', err);
     }
   };
 
-  // startTracking
-  // Begins the GPS stream and saves each position to Supabase.
   const startTracking = async () => {
     try {
-      // Ask for GPS permission first
+      const driverId = driverIdRef.current;
+      const { data: sysData, error: sysError } = await supabase
+        .from('transportation_systems')
+        .select('id')
+        .eq('driver_id', driverId)
+        .single();
+
+      if (sysError || !sysData) {
+         Alert.alert('System Not Found', 'Please set up your Vehicle in the Dashboard first.');
+         return;
+      }
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Location permission is required to start tracking.');
+        Alert.alert('Permission Denied', 'GPS access is required for tracking.');
         return;
       }
 
       setIsTracking(true);
-      setStatusText('Live Tracking Active');
+      setStatusText('You are LIVE');
 
-      // Notify parents via backend
-      try {
-        const stored = await AsyncStorage.getItem('driverData');
-        const driverName = stored ? JSON.parse(stored).name : 'The driver';
-        const sysId = paramDriverId || (stored ? JSON.parse(stored).id : null); 
-        // Note: systemId should ideally be the real UUID of the system, not driverId.
-        // But for now, our backend routes use systemId. Let's fetch it if needed or assume it's linked.
-        // Actually, let's just use the current system fetch logic if we have it.
-        if (sysId) {
-           // We need the system UUID. Let's get it from driverId.
-           const { data: sysData } = await supabase.from('transportation_systems').select('id').eq('driver_id', sysId).single();
-           if (sysData) {
-             await api.post(`/system/${sysData.id}/tracking/start`, { driverName });
-           }
-        }
-      } catch (err) { console.log('Failed to send start notification'); }
-
-      // Start listening for GPS updates
       locationSubscription.current = await Location.watchPositionAsync(
         {
-          accuracy:         Location.Accuracy.High, // High-accuracy GPS
-          timeInterval:     5000,                   // Update every 5 seconds
-          distanceInterval: 5,                      // Or if moved 5 meters
+          accuracy: Location.Accuracy.High,
+          timeInterval: 10000,
+          distanceInterval: 10,
         },
         async (newLocation) => {
           const { latitude, longitude } = newLocation.coords;
-
-          // Update the local map and marker
           setVanLocation({ latitude, longitude });
-          setMapRegion({
-            latitude,
-            longitude,
-            latitudeDelta:  0.005,
-            longitudeDelta: 0.005,
-          });
-
-          // Smoothly pan the map to the new position
-          mapRef.current?.animateToRegion({
-            latitude,
-            longitude,
-            latitudeDelta:  0.005,
-            longitudeDelta: 0.005,
-          });
-
-          // Save to Supabase so parents can see it
           await saveLocationToSupabase(latitude, longitude);
         }
       );
     } catch (e: any) {
-      console.error('[DriverMap] Error starting tracking:', e.message);
-      Alert.alert('Error', 'Failed to start tracking. Please try again.');
       setIsTracking(false);
     }
   };
 
-  // stopTracking
-  // Stops the GPS watcher and clears the tracking state.
   const stopTracking = () => {
     if (locationSubscription.current) {
       locationSubscription.current.remove();
@@ -170,369 +100,253 @@ export default function MapScreen() {
     }
     setIsTracking(false);
     setStatusText('Tracking Stopped');
-
-    // Notify parents via backend
-    (async () => {
-      try {
-        const stored = await AsyncStorage.getItem('driverData');
-        const dId = paramDriverId || (stored ? JSON.parse(stored).id : null);
-        if (dId) {
-          const { data: sysData } = await supabase.from('transportation_systems').select('id').eq('driver_id', dId).single();
-          if (sysData) {
-            await api.post(`/system/${sysData.id}/tracking/stop`);
-          }
-        }
-      } catch (err) { console.log('Failed to send stop notification'); }
-    })();
   };
 
-  // initDriver
-  // Called once when the screen loads in Driver mode.
-  const initDriver = async () => {
-    setLoading(false);
-
-    // Get the driver's user ID — first try the URL param, then AsyncStorage
-    let driverId = paramDriverId as string | null;
-    if (!driverId) {
-      const stored = await AsyncStorage.getItem('driverData');
-      if (stored) driverId = JSON.parse(stored).id;
-    }
-
-    if (!driverId) {
-      Alert.alert('Error', 'Could not find your driver profile. Please log in again.');
-      router.replace('/login');
-      return;
-    }
-
-    // Store in ref so the GPS callback can use it without stale closure issues
-    driverIdRef.current = driverId;
-    console.log('[DriverMap] Driver ID:', driverId);
-
-    // Get one initial location to centre the map before starting the watcher
+  // --- PARENT LOGIC ---
+  
+  // Find which van is assigned to this parent
+  const findAssignedSystem = async () => {
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const pos = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = pos.coords;
-        setVanLocation({ latitude, longitude });
-        setMapRegion({ latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 });
-      }
-    } catch (_) { /* first-time location optional, tracking will start anyway */ }
+      const parentData = await AsyncStorage.getItem('parentData');
+      if (!parentData) return null;
+      const parentId = JSON.parse(parentData).id;
 
-    // Let the driver click "Start Tracking" manually
+      // Logic: Parent -> Student -> System
+      const { data, error } = await supabase
+        .from('students')
+        .select('system_id')
+        .eq('parent_id', parentId)
+        .limit(1)
+        .single();
+
+      if (error || !data?.system_id) {
+        console.warn('[ParentMap] No assigned system found for parent');
+        return null;
+      }
+      return data.system_id;
+    } catch (err) {
+      return null;
+    }
   };
 
-  // ════════════════════════════════════════════════════════════
-  // PARENT LOGIC
-  // ════════════════════════════════════════════════════════════
-
-  // fetchDriverLocation
-  // Reads the latest (most recently updated) driver position from 'transportation_systems'.
   const fetchDriverLocation = async () => {
-    console.log('[ParentMap] Fetching driver location from Supabase...');
-
-    // Get the most recently updated van record
-    // (You can filter by a specific driver if you store the driver link in parents table)
-    const { data, error } = await supabase
-      .from('transportation_systems')
-      .select('current_lat, current_lng, driver_id')
-      .not('current_lat', 'is', null)   // Only rows that actually have a location
-      .not('current_lng', 'is', null)
-      .order('updated_at', { ascending: false }) // Most recently updated first
-      .limit(1)                                   // We only need one van for now
-      .single();
-
-    if (error || !data) {
-      console.log('[ParentMap] No van location available yet:', error?.message);
-      setStatusText('No driver is active right now');
+    const systemId = trackingSystemIdRef.current;
+    if (!systemId) {
+      setStatusText('No assigned van found.');
       return;
     }
 
-    const lat = parseFloat(data.current_lat);
-    const lng = parseFloat(data.current_lng);
+    try {
+      const { data, error } = await supabase
+        .from('transportation_systems')
+        .select('current_lat, current_lng, updated_at, name')
+        .eq('id', systemId)
+        .single();
 
-    console.log(`[ParentMap] Got location: ${lat}, ${lng}`);
+      if (error || !data) {
+        setStatusText('Tracking unavailable');
+        return;
+      }
 
-    setVanLocation({ latitude: lat, longitude: lng });
-    setMapRegion({
-      latitude:      lat,
-      longitude:     lng,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    });
-    setStatusText('Driver location found ✓');
-    setLoading(false);
+      // Check if location is "stale" (driver hasn't updated in 1 minute)
+      const lastUpdate = new Date(data.updated_at).getTime();
+      const now = new Date().getTime();
+      const diffSeconds = (now - lastUpdate) / 1000;
 
-    // Pan the map to the driver's position
-    mapRef.current?.animateToRegion({
-      latitude:      lat,
-      longitude:     lng,
-      latitudeDelta: 0.005,
-      longitudeDelta: 0.005,
-    });
+      if (!data.current_lat || diffSeconds > 60) {
+        setStatusText('Driver has not started live location yet');
+        setVanLocation(null);
+        return;
+      }
+
+      const lat = parseFloat(data.current_lat);
+      const lng = parseFloat(data.current_lng);
+
+      setVanLocation({ latitude: lat, longitude: lng });
+      setMapRegion((prev: any) => prev || {
+        latitude: lat,
+        longitude: lng,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+
+      setStatusText(`Driver ${data.name || ''} is LIVE ✓`);
+      setLoading(false);
+
+      // Smoothly move map to van
+      mapRef.current?.animateToRegion({
+        latitude: lat,
+        longitude: lng,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      });
+    } catch (err) {
+      setStatusText('Refresh failed');
+    }
   };
 
-  // initParent
-  // Called once when the screen loads in Parent mode.
-  const initParent = async () => {
-    setStatusText('Loading driver location...');
-
-    // Fetch immediately
-    await fetchDriverLocation();
-
-    // Then refresh every 5 seconds automatically
-    refreshInterval.current = setInterval(() => {
-      fetchDriverLocation();
-    }, 5000);
-  };
-
-  // ════════════════════════════════════════════════════════════
-  // LIFECYCLE — runs once when the screen mounts
-  // ════════════════════════════════════════════════════════════
+  // --- INITIALIZATION ---
   useEffect(() => {
-    const checkRoleAndInit = async () => {
-      let currentRole = role as string;
-      
-      // If role not passed in params, figure it out from storage
+    const init = async () => {
+      let currentRole = role;
       if (!currentRole) {
-        const parentData = await AsyncStorage.getItem('parentData');
-        const driverData = await AsyncStorage.getItem('driverData');
-        
-        if (parentData) {
-          currentRole = 'Parent';
-        } else if (driverData) {
-          currentRole = 'Driver';
-        } else {
-          currentRole = 'Driver'; // Fallback
-        }
+        const p = await AsyncStorage.getItem('parentData');
+        const d = await AsyncStorage.getItem('driverData');
+        currentRole = p ? 'Parent' : 'Driver';
         setRole(currentRole);
       }
 
       if (currentRole === 'Driver') {
-        initDriver();
-      } else if (currentRole === 'Parent') {
-        setLoading(false); // Show map shell while fetching
-        initParent();
+        let dId = paramDriverId as string;
+        if (!dId) {
+          const stored = await AsyncStorage.getItem('driverData');
+          if (stored) dId = JSON.parse(stored).id;
+        }
+        driverIdRef.current = dId;
+        setLoading(false);
+        
+        // --- SAFE INITIALIZATION ---
+        try {
+          // Request permission FIRST
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+             setStatusText('Permission Denied');
+             Alert.alert('Permission Required', 'Enable location to track your van.');
+             return;
+          }
+          
+          // Only call GPS if granted
+          const pos = await Location.getCurrentPositionAsync({});
+          setMapRegion({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01
+          });
+        } catch (err) {
+          console.warn('[DriverMap] GPS init failed:', err);
+        }
+      } else {
+        // Parent Mode
+        const sysId = await findAssignedSystem();
+        if (sysId) {
+          trackingSystemIdRef.current = sysId;
+          await fetchDriverLocation();
+          refreshInterval.current = setInterval(fetchDriverLocation, 10000); // 10s poll
+        } else {
+          setStatusText('Please add a child in the Dashboard to track their van.');
+        }
+        setLoading(false);
       }
     };
 
-    checkRoleAndInit();
-
-    // CLEANUP — runs when the user leaves this screen
+    init();
     return () => {
-      // Stop GPS watcher
-      if (locationSubscription.current) {
-        locationSubscription.current.remove();
-        locationSubscription.current = null;
-      }
-      // Stop auto-refresh timer
-      if (refreshInterval.current) {
-        clearInterval(refreshInterval.current);
-        refreshInterval.current = null;
-      }
+      if (locationSubscription.current) locationSubscription.current.remove();
+      if (refreshInterval.current) clearInterval(refreshInterval.current);
     };
   }, []);
 
-  // ════════════════════════════════════════════════════════════
-  // UI
-  // ════════════════════════════════════════════════════════════
   const isDriver = role === 'Driver';
-  const isParent = role === 'Parent';
 
   return (
     <View style={styles.container}>
-
-      {/* MAP — show once we have a region to display */}
       {mapRegion ? (
-        <MapView
-          ref={mapRef}
-          style={styles.map}
-          initialRegion={mapRegion}
-          showsUserLocation={false}
-        >
-          {/* Van marker — shown only when we have a position */}
+        <MapView ref={mapRef} style={styles.map} initialRegion={mapRegion}>
           {vanLocation && (
-            <Marker
-              coordinate={vanLocation}
-              title={isDriver ? 'My Van' : 'School Van'}
-              description={isDriver ? 'Your live location' : "Driver's live location"}
-            >
-              <View style={[styles.markerContainer, { borderColor: isDriver ? '#3B82F6' : '#F59E0B' }]}>
-                <MaterialCommunityIcons
-                  name="van-passenger"
-                  size={30}
-                  color={isDriver ? '#3B82F6' : '#F59E0B'}
-                />
+            <Marker coordinate={vanLocation}>
+              <View style={[styles.markerContainer, { borderColor: isDriver ? '#3B82F6' : '#10B981' }]}>
+                <MaterialCommunityIcons name="van-passenger" size={30} color={isDriver ? '#3B82F6' : '#10B981'} />
               </View>
             </Marker>
           )}
         </MapView>
       ) : (
-        // Loading placeholder
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>
-            {isParent ? 'Looking for driver location...' : 'Loading map...'}
-          </Text>
+          <Text style={styles.loadingText}>Connecting to Satellite...</Text>
         </View>
       )}
 
-      {/* BOTTOM CONTROL CARD — floating over the map */}
-      <View style={styles.controlContainer}>
-
-        {/* Status row with coloured dot */}
-        <View style={styles.statusRow}>
-          <View style={[
-            styles.statusDot,
-            { backgroundColor: isDriver
-                ? (isTracking ? '#22C55E' : '#EF4444')
-                : (vanLocation ? '#22C55E' : '#F59E0B')
-            }
-          ]} />
-          <Text style={styles.statusText}>
-            {isDriver
-              ? (isTracking ? '🟢 Live Tracking Active' : '🔴 Tracking Stopped')
-              : (vanLocation ? `🟢 ${statusText}` : `🟡 ${statusText}`)
-            }
-          </Text>
+      {/* Control Overlay */}
+      <View style={styles.controlBox}>
+        <View style={styles.statusHeader}>
+          <View style={[styles.dot, { backgroundColor: vanLocation ? '#22C55E' : '#F59E0B' }]} />
+          <Text style={styles.statusTitle}>{statusText}</Text>
         </View>
 
-        {/* Show current coordinates */}
-        {vanLocation && (
-          <Text style={styles.coordsText}>
-            📍 {vanLocation.latitude.toFixed(6)}, {vanLocation.longitude.toFixed(6)}
-          </Text>
+        {isDriver && (
+          <View style={styles.coordinatesCard}>
+            {vanLocation ? (
+              <View style={styles.coordsRow}>
+                <View style={styles.coordItem}>
+                  <Text style={styles.coordLabel}>LATITUDE</Text>
+                  <Text style={styles.coordValue}>{vanLocation.latitude.toFixed(4)}°</Text>
+                </View>
+                <View style={styles.vDivider} />
+                <View style={styles.coordItem}>
+                  <Text style={styles.coordLabel}>LONGITUDE</Text>
+                  <Text style={styles.coordValue}>{vanLocation.longitude.toFixed(4)}°</Text>
+                </View>
+              </View>
+            ) : (
+              <Text style={styles.noCoordsText}>Location not available</Text>
+            )}
+          </View>
         )}
 
-        {/* DRIVER: Start / Stop Tracking button */}
         {isDriver && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: isTracking ? '#EF4444' : '#3B82F6' }]}
+          <TouchableOpacity 
+            style={[styles.btn, { backgroundColor: isTracking ? '#EF4444' : '#3B82F6' }]} 
             onPress={isTracking ? stopTracking : startTracking}
           >
-            <Text style={styles.actionButtonText}>
-              {isTracking ? '⏹ Stop Tracking' : '▶ Start Tracking'}
-            </Text>
+            <Text style={styles.btnText}>{isTracking ? 'Stop Live Location' : 'Start Live Location'}</Text>
           </TouchableOpacity>
         )}
 
-        {/* PARENT: Manual Refresh button */}
-        {isParent && (
-          <TouchableOpacity
-            style={[styles.actionButton, { backgroundColor: '#10B981' }]}
-            onPress={fetchDriverLocation}
-          >
-            <Text style={styles.actionButtonText}>🔄 Refresh Location</Text>
-          </TouchableOpacity>
+        {!isDriver && !vanLocation && (
+          <View style={styles.noLocationBox}>
+            <Ionicons name="time" size={20} color="#64748B" />
+            <Text style={styles.noLocationText}>Waiting for Driver GPS pulse...</Text>
+          </View>
         )}
       </View>
 
-      {/* ROLE BADGE — top left corner */}
-      <View style={[styles.roleBadge, { backgroundColor: isDriver ? '#3B82F6' : '#10B981' }]}>
-        <Text style={styles.roleBadgeText}>
-          {isDriver ? '🚐 Driver View' : '👨‍👩‍👧 Parent View'}
-        </Text>
+      <View style={[styles.badge, { backgroundColor: isDriver ? '#3B82F6' : '#10B981' }]}>
+        <Text style={styles.badgeText}>{isDriver ? 'DRIVER VIEW' : 'TRACKING MODE'}</Text>
       </View>
-
     </View>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-// STYLES
-// ════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-  container:       { flex: 1 },
-  map:             { flex: 1 },
-
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  container: { flex: 1, backgroundColor: '#fff' },
+  map: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 15, color: '#64748B', fontWeight: 'bold' },
+  markerContainer: { backgroundColor: '#fff', padding: 8, borderRadius: 25, borderWidth: 3, elevation: 5 },
+  controlBox: { position: 'absolute', bottom: 40, left: 20, right: 20, backgroundColor: '#fff', borderRadius: 24, padding: 20, shadowOpacity: 0.1, elevation: 10 },
+  statusHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  dot: { width: 10, height: 10, borderRadius: 5, marginRight: 10 },
+  statusTitle: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
+  btn: { paddingVertical: 18, borderRadius: 16, alignItems: 'center' },
+  btnText: { color: '#fff', fontWeight: '900', fontSize: 16 },
+  coordinatesCard: {
     backgroundColor: '#F8FAFC',
-    gap: 16,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
   },
-  loadingText: { fontSize: 16, color: '#64748B', marginTop: 12 },
-
-  markerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    padding: 6,
-    borderWidth: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-
-  controlContainer: {
-    position:        'absolute',
-    bottom:          30,
-    left:            16,
-    right:           16,
-    backgroundColor: '#FFFFFF',
-    borderRadius:    20,
-    padding:         20,
-    shadowColor:     '#000',
-    shadowOffset:    { width: 0, height: 6 },
-    shadowOpacity:   0.12,
-    shadowRadius:    12,
-    elevation:       8,
-  },
-
-  statusRow: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    marginBottom:   12,
-  },
-  statusDot: {
-    width:        12,
-    height:       12,
-    borderRadius: 6,
-    marginRight:  10,
-  },
-  statusText: {
-    fontSize:   15,
-    fontWeight: '600',
-    color:      '#1E293B',
-    flex:       1,
-    flexWrap:   'wrap',
-  },
-  coordsText: {
-    fontSize:     12,
-    color:        '#64748B',
-    marginBottom: 14,
-    fontFamily:   'monospace',
-  },
-
-  actionButton: {
-    paddingVertical: 14,
-    borderRadius:    12,
-    alignItems:      'center',
-  },
-  actionButtonText: {
-    color:      '#FFFFFF',
-    fontSize:   16,
-    fontWeight: 'bold',
-  },
-
-  roleBadge: {
-    position:     'absolute',
-    top:          50,
-    left:         16,
-    paddingHorizontal: 14,
-    paddingVertical:    7,
-    borderRadius: 20,
-    shadowColor:  '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation:    4,
-  },
-  roleBadgeText: {
-    color:      '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize:   13,
-  },
+  coordsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  coordItem: { alignItems: 'center' },
+  coordLabel: { fontSize: 9, fontWeight: '800', color: '#94A3B8', marginBottom: 2 },
+  coordValue: { fontSize: 15, fontWeight: '900', color: '#334155' },
+  vDivider: { width: 1, height: 20, backgroundColor: '#E2E8F0' },
+  noCoordsText: { textAlign: 'center', color: '#94A3B8', fontSize: 13, fontWeight: '600' },
+  noLocationBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10 },
+  noLocationText: { color: '#64748B', fontSize: 13 },
+  badge: { position: 'absolute', top: 60, left: 20, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 100 },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: '900' }
 });

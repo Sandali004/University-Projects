@@ -1,9 +1,3 @@
-// ============================================================
-// loginService.js
-//
-// Authenticates users via the BACKEND API.
-// ============================================================
-
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -50,9 +44,8 @@ export async function loginDriver(email, password) {
     : result;
 }
 
-// ─────────────────────────────────────────────────────────
 // loginParent
-// ─────────────────────────────────────────────────────────
+
 export async function loginParent(email, password) {
   const result = await loginHelper('/parent/login', email, password, 'parentToken', 'parentData');
   return result.success 
@@ -60,9 +53,8 @@ export async function loginParent(email, password) {
     : result;
 }
 
-// ─────────────────────────────────────────────────────────
 // loginAttendant
-// ─────────────────────────────────────────────────────────
+
 export async function loginAttendant(email, password) {
   const result = await loginHelper('/attendant/login', email, password, 'attendantToken', 'attendantData');
   return result.success 

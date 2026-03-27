@@ -30,7 +30,7 @@ export default function MapScreen() {
   const driverIdRef          = useRef<string | null>(null);
   const trackingSystemIdRef  = useRef<string | null>(null); // The specific van ID the parent is tracking
 
-  // --- DRIVER LOGIC ---
+  // DRIVER LOGIC 
   const saveLocationToSupabase = async (latitude: number, longitude: number) => {
     const driverId = driverIdRef.current;
     if (!driverId) return;
@@ -102,7 +102,7 @@ export default function MapScreen() {
     setStatusText('Tracking Stopped');
   };
 
-  // --- PARENT LOGIC ---
+  // PARENT LOGIC 
   
   // Find which van is assigned to this parent
   const findAssignedSystem = async () => {
@@ -185,7 +185,7 @@ export default function MapScreen() {
     }
   };
 
-  // --- INITIALIZATION ---
+  //  INITIALIZATION 
   useEffect(() => {
     const init = async () => {
       let currentRole = role;
@@ -205,7 +205,7 @@ export default function MapScreen() {
         driverIdRef.current = dId;
         setLoading(false);
         
-        // --- SAFE INITIALIZATION ---
+        // SAFE INITIALIZATION 
         try {
           // Request permission FIRST
           const { status } = await Location.requestForegroundPermissionsAsync();

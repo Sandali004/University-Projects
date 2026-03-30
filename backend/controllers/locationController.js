@@ -8,24 +8,49 @@ import { supabase } from "../utils/supabase.js";
 export const updateDriverLocation = async (req, res) => {
   try {
     // 1. Accept data from the incoming request body
-    const { driverId, latitude, longitude, timestamp } = req.body;
+    const { driverId, latitude, longitude, timestamp, driverName } = req.body;
+
+    console.log('[LocationController] Received location update');
+    console.log('[LocationController] Driver ID:', driverId);
+    console.log('[LocationController] Coordinates:', { latitude, longitude });
 
     // 2. Validate required fields
     if (!driverId || latitude == null || longitude == null || !timestamp) {
+      console.warn('[LocationController] Missing required fields');
       return res.status(400).json({ 
         success: false,
         message: "Missing required location data. Please send driverId, latitude, longitude, and timestamp." 
       });
     }
 
-    // 3. Update in Supabase
-    // Note: We use the transportation_systems table to track the latest location of the driver/vehicle
-    const { error } = await supabase
-      .from('transportation_systems')
-      .update({ current_lat: latitude, current_lng: longitude })
-      .eq('driver_id', driverId);
+    // 3. Update in Supabase transportation_systems table
+    // Note: We update with required name field to avoid NOT NULL constraint issues
+    const payload = {
+      current_lat: latitude, 
+      current_lng: longitude,
+      updated_at: new Date().toISOString(),
+    };
 
-    if (error) throw error;
+    // If driver name is provided, include it
+    if (driverName) {
+      payload.name = driverName;
+    }
+
+    console.log('[LocationController] Updating transportation_systems table');
+    console.log('[LocationController] Payload:', payload);
+
+    const { error, data } = await supabase
+      .from('transportation_systems')
+      .update(payload)
+      .eq('driver_id', driverId)
+      .select();
+
+    if (error) {
+      console.error('[LocationController] Supabase error:', error.code, error.message);
+      throw error;
+    }
+
+    console.log('[LocationController] Update successful, rows affected:', data?.length || 0);
 
     // 4. Return a successful, structured response back to the React Native app
     return res.status(200).json({ 

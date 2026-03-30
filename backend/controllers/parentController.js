@@ -2,10 +2,10 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../utils/supabase.js";
 
-// ─────────────────────────────────────────────────────────
+
 // REGISTER PARENT
 // Saves parent into the 'users' table with role = 'parent'
-// ─────────────────────────────────────────────────────────
+
 export const registerParent = async (req, res) => {
   try {
     console.log("[Backend] registerParent body:", req.body);
@@ -59,10 +59,10 @@ export const registerParent = async (req, res) => {
 };
 
 
-// ─────────────────────────────────────────────────────────
+
 // LOGIN PARENT
 // Finds user in 'users' table by email WHERE role = 'parent'
-// ─────────────────────────────────────────────────────────
+
 export const loginParent = async (req, res) => {
   try {
     const { email, input, password } = req.body;

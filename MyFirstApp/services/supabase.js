@@ -1,9 +1,3 @@
-// ============================================================
-// Supabase Client for the React Native Frontend
-// This file creates a connection to your Supabase database
-// so that the app can communicate with it directly.
-// ============================================================
-
 import { createClient } from '@supabase/supabase-js';
 
 // Your Supabase project URL (found in: Supabase > Settings > API)

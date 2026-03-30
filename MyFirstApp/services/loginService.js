@@ -1,9 +1,3 @@
-// ============================================================
-// loginService.js
-//
-// Authenticates users via the BACKEND API.
-// ============================================================
-
 import api from './api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -16,6 +10,14 @@ async function loginHelper(endpoint, email, password, tokenKey, dataKey) {
     const response = await api.post(endpoint, { email, password });
     const { token, user, message } = response.data;
 
+    // Clear all previous sessions to prevent role confusion
+    await AsyncStorage.removeItem('driverToken');
+    await AsyncStorage.removeItem('driverData');
+    await AsyncStorage.removeItem('parentToken');
+    await AsyncStorage.removeItem('parentData');
+    await AsyncStorage.removeItem('attendantToken');
+    await AsyncStorage.removeItem('attendantData');
+
     // Save session data locally
     if (token) {
       await AsyncStorage.setItem(tokenKey, token);
@@ -27,7 +29,16 @@ async function loginHelper(endpoint, email, password, tokenKey, dataKey) {
     return { success: true, user, message };
   } catch (error) {
     console.error(`[loginService] Error calling ${endpoint}:`, error.response?.data || error.message);
-    const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
+    
+    let message;
+    if (error.response?.data?.message) {
+      message = error.response.data.message;
+    } else if (!error.response) {
+      message = 'Network error. Unable to connect to server.';
+    } else {
+      message = 'Login failed. Please check your credentials.';
+    }
+    
     return { success: false, message };
   }
 }
@@ -42,9 +53,8 @@ export async function loginDriver(email, password) {
     : result;
 }
 
-// ─────────────────────────────────────────────────────────
 // loginParent
-// ─────────────────────────────────────────────────────────
+
 export async function loginParent(email, password) {
   const result = await loginHelper('/parent/login', email, password, 'parentToken', 'parentData');
   return result.success 
@@ -52,9 +62,8 @@ export async function loginParent(email, password) {
     : result;
 }
 
-// ─────────────────────────────────────────────────────────
 // loginAttendant
-// ─────────────────────────────────────────────────────────
+
 export async function loginAttendant(email, password) {
   const result = await loginHelper('/attendant/login', email, password, 'attendantToken', 'attendantData');
   return result.success 

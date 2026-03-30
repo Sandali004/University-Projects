@@ -1,17 +1,15 @@
-// ============================================================
-// Dashboard Layout
-// Uses tabs navigation. The map tab handles both Driver and
-// Parent views based on the role stored in AsyncStorage.
-// ============================================================
-import { Tabs } from 'expo-router';
+import { Tabs, usePathname, useRouter, Redirect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function DashboardLayout() {
+  const router = useRouter();
   // Read the role from storage to colour the tab bar correctly
-  const [role, setRole] = useState<string>('Driver');
+  const [role, setRole] = useState<string | null>('loading');
 
+  const pathname = usePathname();
+  
   useEffect(() => {
     (async () => {
       // Check which type of user is logged in
@@ -21,9 +19,20 @@ export default function DashboardLayout() {
 
       if (parentData)    setRole('Parent');
       else if (attendantData) setRole('Attendant');
-      else               setRole('Driver');
+      else if (driverData)    setRole('Driver');
+      else               setRole(null);
     })();
-  }, []);
+  }, [pathname]);
+
+  // If we've finished checking and have no role, they've logged out or are unauthorized
+  if (role === null) {
+    return <Redirect href="/" />;
+  }
+
+  // If still loading, just show a blank screen or we could add a loader
+  if (role === 'loading') {
+    return null;
+  }
 
   // Pick accent colour based on role
   const accentColor = role === 'Parent' ? '#10B981' : role === 'Attendant' ? '#8B5CF6' : '#3B82F6';
@@ -39,7 +48,7 @@ export default function DashboardLayout() {
     >
       {/* Dashboard summary tab */}
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
@@ -48,14 +57,15 @@ export default function DashboardLayout() {
         }}
       />
 
-      {/* Live Map tab — shows Driver or Parent view automatically */}
+      {/* Live Map tab — hidden for everyone, only accessible via System view */}
       <Tabs.Screen
         name="map"
         options={{
-          title: role === 'Parent' ? 'Van Location' : 'Live Map',
+          href: null,
+          title: 'Live Map',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
-              name={role === 'Parent' ? 'map-marker-check' : 'map-marker-radius'}
+              name="map-marker-radius"
               size={size}
               color={color}
             />
@@ -68,6 +78,18 @@ export default function DashboardLayout() {
           title: 'System',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="bus-school" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Notifications tab — visible only for Parents */}
+      <Tabs.Screen
+        name="notifications"
+        options={{
+          href: null,
+          title: 'Notifications',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="bell-outline" size={size} color={color} />
           ),
         }}
       />

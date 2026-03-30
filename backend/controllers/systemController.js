@@ -17,30 +17,37 @@ export const createSystem = async (req, res) => {
 
     const joinCode = generateJoinCode();
 
+    const insertData = {
+      driver_id: driverId,
+      name,
+      plate_number: plateNumber,
+      vehicle_type: vehicleType,
+      max_seats: parseInt(maxSeats, 10) || 0,
+      join_code: joinCode
+    };
+
+    if (routeId) {
+      insertData.route_id = routeId;
+    }
+
     const { data, error } = await supabase
       .from('transportation_systems')
-      .insert([{
-        driver_id: driverId,
-        name,
-        plate_number: plateNumber,
-        vehicle_type: vehicleType,
-        max_seats: parseInt(maxSeats, 10),
-        join_code: joinCode,
-        route_id: routeId
-      }])
+      .insert([insertData])
       .select()
       .single();
 
     if (error) {
+      console.log('Error from Supabase createSystem:', error);
       if (error.code === '23505') {
-        return res.status(409).json({ message: "You already have a system or this plate number/code is taken." });
+        return res.status(409).json({ message: "You already have a system or this plate number is taken." });
       }
-      throw error;
+      return res.status(500).json({ message: "Database Error: " + error.message });
     }
 
     res.status(201).json({ message: "Transportation system created successfully.", system: data });
   } catch (error) {
-    res.status(500).json({ message: "Error creating system", error: error.message });
+    console.log('Error creating system:', error);
+    res.status(500).json({ message: "Error creating system: " + error.message, error: error.message });
   }
 };
 
@@ -56,6 +63,23 @@ export const getSystem = async (req, res) => {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "no rows returned"
+
+    if (data) {
+      // Fetch attendant for this system
+      const { data: attendantData } = await supabase
+        .from('system_attendants')
+        .select('is_present, users(name, email)')
+        .eq('system_id', data.id)
+        .single();
+      
+      if (attendantData) {
+        data.attendant = {
+          name: attendantData.users.name,
+          email: attendantData.users.email,
+          is_present: attendantData.is_present
+        };
+      }
+    }
 
     res.status(200).json({ system: data || null });
   } catch (error) {
@@ -97,6 +121,41 @@ export const joinSystem = async (req, res) => {
 
     res.status(200).json({ message: "Successfully joined the transportation system.", systemId: system.id });
   } catch (error) {
+    res.status(500).json({ message: "Error joining system", error: error.message });
+  }
+};
+
+// Function: Attendant joins a system via code
+export const joinSystemAttendant = async (req, res) => {
+  try {
+    const { attendantId, joinCode } = req.body;
+
+    if (!attendantId || !joinCode) {
+      return res.status(400).json({ message: "Attendant ID and join code are required." });
+    }
+
+    // 1. Find the system by join code
+    const { data: system, error: systemError } = await supabase
+      .from('transportation_systems')
+      .select('id')
+      .eq('join_code', joinCode.toUpperCase())
+      .single();
+
+    if (systemError || !system) {
+      return res.status(404).json({ message: "Invalid join code. System not found." });
+    }
+
+    // 2. Add attendant to system_attendants
+    // Upsert or insert (assuming one system per attendant)
+    const { error: joinError } = await supabase
+      .from('system_attendants')
+      .upsert([{ system_id: system.id, attendant_id: attendantId, is_present: true }], { onConflict: 'attendant_id' });
+
+    if (joinError) throw joinError;
+
+    res.status(200).json({ message: "Successfully registered as attendant for this system.", systemId: system.id });
+  } catch (error) {
+    console.error("Error joining system as attendant:", error);
     res.status(500).json({ message: "Error joining system", error: error.message });
   }
 };
@@ -160,8 +219,187 @@ export const getParentSystem = async (req, res) => {
       .single();
 
     if (error && error.code !== 'PGRST116') throw error;
-    res.status(200).json({ system: data?.transportation_systems || null });
+
+    let system = data?.transportation_systems || null;
+    
+    if (system && system.driver_id) {
+      const { data: driverData } = await supabase
+        .from('users')
+        .select('name, email')
+        .eq('id', system.driver_id)
+        .single();
+        
+      if (driverData) {
+         system.driver = driverData;
+      }
+    }
+
+    // Fetch attendant info for the parent
+    if (system) {
+      const { data: attendantData } = await supabase
+        .from('system_attendants')
+        .select('is_present, users(name, email)')
+        .eq('system_id', system.id)
+        .single();
+      
+      if (attendantData) {
+        system.attendant = {
+          name: attendantData.users.name,
+          email: attendantData.users.email,
+          is_present: attendantData.is_present
+        };
+      }
+    }
+
+    res.status(200).json({ system });
   } catch (error) {
     res.status(500).json({ message: "Error fetching parent system", error: error.message });
+  }
+};
+
+// Function: Get what system an attendant is in
+export const getAttendantSystem = async (req, res) => {
+  try {
+    const { attendantId } = req.params;
+    const { data, error } = await supabase
+      .from('system_attendants')
+      .select('system_id, is_present, transportation_systems(*, routes(name))')
+      .eq('attendant_id', attendantId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    let system = data?.transportation_systems || null;
+    
+    if (system) {
+      system.is_present = data.is_present;
+      // Fetch driver info
+      if (system.driver_id) {
+        const { data: driverData } = await supabase
+          .from('users')
+          .select('name, email')
+          .eq('id', system.driver_id)
+          .single();
+        if (driverData) system.driver = driverData;
+      }
+    }
+
+    res.status(200).json({ system });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching attendant system", error: error.message });
+  }
+};
+
+// Function: Update attendant presence
+export const updateAttendantPresence = async (req, res) => {
+  try {
+    const { attendantId } = req.params;
+    const { isPresent } = req.body;
+
+    const { data, error } = await supabase
+      .from('system_attendants')
+      .update({ is_present: isPresent })
+      .eq('attendant_id', attendantId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({ message: "Presence status updated.", is_present: data.is_present });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating presence", error: error.message });
+  }
+};
+
+// Function: Update system route
+export const updateSystemRoute = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+    const { routeId } = req.body;
+
+    const { data, error } = await supabase
+      .from('transportation_systems')
+      .update({ route_id: routeId })
+      .eq('id', systemId)
+      .select('*, routes(name)')
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({ message: "Route updated successfully.", system: data });
+  } catch (error) {
+    res.status(500).json({ message: "Error updating route", error: error.message });
+  }
+};
+
+
+// START TRACKING NOTIFY
+
+export const startTrackingNotify = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+    const { driverName } = req.body;
+
+    // Get all parents linked to this system
+    const { data: parents, error: pError } = await supabase
+      .from('system_parents')
+      .select('parent_id')
+      .eq('system_id', systemId);
+
+    if (pError) throw pError;
+
+    if (parents && parents.length > 0) {
+      const notifications = parents.map(p => ({
+        user_id: p.parent_id,
+        message: `${driverName || 'The driver'} has started live location sharing.`,
+        type: 'tracking_start'
+      }));
+
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (nError) throw nError;
+    }
+
+    res.status(200).json({ message: "Parents notified of tracking start." });
+  } catch (error) {
+    console.error("Error notifying tracking start:", error);
+    res.status(500).json({ message: "Internal Server Error notifying start." });
+  }
+};
+
+
+// STOP TRACKING NOTIFY
+
+export const stopTrackingNotify = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+
+    const { data: parents, error: pError } = await supabase
+      .from('system_parents')
+      .select('parent_id')
+      .eq('system_id', systemId);
+
+    if (pError) throw pError;
+
+    if (parents && parents.length > 0) {
+      const notifications = parents.map(p => ({
+        user_id: p.parent_id,
+        message: "Driver has stopped live location sharing.",
+        type: 'tracking_stop'
+      }));
+
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert(notifications);
+
+      if (nError) throw nError;
+    }
+
+    res.status(200).json({ message: "Parents notified of tracking stop." });
+  } catch (error) {
+    console.error("Error notifying tracking stop:", error);
+    res.status(500).json({ message: "Internal Server Error notifying stop." });
   }
 };

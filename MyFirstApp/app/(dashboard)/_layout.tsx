@@ -1,8 +1,3 @@
-// ============================================================
-// Dashboard Layout
-// Uses tabs navigation. The map tab handles both Driver and
-// Parent views based on the role stored in AsyncStorage.
-// ============================================================
 import { Tabs, usePathname } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';

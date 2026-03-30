@@ -2,10 +2,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../utils/supabase.js";
 
-// ─────────────────────────────────────────────────────────
 // REGISTER DRIVER
 // Saves driver into the 'users' table with role = 'driver'
-// ─────────────────────────────────────────────────────────
 export const registerDriver = async (req, res) => {
   try {
     console.log("[Backend] registerDriver body:", req.body);
@@ -69,10 +67,9 @@ export const registerDriver = async (req, res) => {
 };
 
 
-// ─────────────────────────────────────────────────────────
 // LOGIN DRIVER
 // Finds user in 'users' table by email WHERE role = 'driver'
-// ─────────────────────────────────────────────────────────
+
 export const loginDriver = async (req, res) => {
   try {
     const { email, input, password } = req.body;
@@ -120,9 +117,53 @@ export const loginDriver = async (req, res) => {
 };
 
 
-// ─────────────────────────────────────────────────────────
 // SEND ALERT (Placeholder)
-// ─────────────────────────────────────────────────────────
+
 export const sendAlert = async (req, res) => {
-  return res.status(200).json({ message: "Alert sent successfully (placeholder)." });
+  try {
+    const { driverId, alertType, message } = req.body;
+
+    if (!driverId || !alertType || !message) {
+      return res.status(400).json({ message: "Driver ID, alert type, and message are required." });
+    }
+
+    // 1. Find the system for this driver
+    const { data: system, error: sysError } = await supabase
+      .from('transportation_systems')
+      .select('id, name')
+      .eq('driver_id', driverId)
+      .single();
+
+    if (sysError || !system) {
+      return res.status(404).json({ message: "No transportation system found for this driver." });
+    }
+
+    // 2. Find all parents connected to this system
+    const { data: parents, error: parError } = await supabase
+      .from('system_parents')
+      .select('parent_id')
+      .eq('system_id', system.id);
+
+    if (parError || !parents || parents.length === 0) {
+      return res.status(200).json({ message: "No parents in system to notify." });
+    }
+
+    // 3. Create a notification for each parent
+    const notifications = parents.map(p => ({
+      user_id: p.parent_id,
+      message: `${system.name} Update: [${alertType}] ${message}`,
+      type: alertType.toLowerCase().replace(/\s+/g, '_')
+    }));
+
+    const { error: notifError } = await supabase
+      .from('notifications')
+      .insert(notifications);
+
+    if (notifError) throw notifError;
+
+    return res.status(200).json({ message: `Alert sent to ${parents.length} parents successfully.` });
+  } catch (error) {
+    console.error("Unexpected error (sendAlert):", error);
+    return res.status(500).json({ message: "Server error sending alert.", error: error.message });
+  }
 };

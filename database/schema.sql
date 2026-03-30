@@ -20,11 +20,17 @@ CREATE TABLE routes (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Vans table
-CREATE TABLE vans (
+-- 3. Transportation Systems table (formerly vans)
+-- This table stores BOTH static van information AND 
+-- the current dynamic live location of the driver.
+CREATE TABLE transportation_systems (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    driver_id UUID UNIQUE REFERENCES users(id),
+    driver_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
     plate_number TEXT UNIQUE NOT NULL,
+    vehicle_type TEXT,
+    max_seats INTEGER,
+    join_code TEXT UNIQUE NOT NULL,
     current_lat DECIMAL(10, 8),
     current_lng DECIMAL(11, 8),
     route_id UUID REFERENCES routes(id),
@@ -36,28 +42,57 @@ CREATE TABLE vans (
 CREATE TABLE students (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
-    parent_id UUID REFERENCES users(id),
-    van_id UUID REFERENCES vans(id),
+    parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
+    school TEXT,
+    grade TEXT,
+    pickup_location TEXT,
+    dropoff_location TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Attendance table
+-- 5. System Parents join table
+CREATE TABLE system_parents (
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (system_id, parent_id)
+);
+
+-- 6. Attendance table
 CREATE TABLE attendance (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    student_id UUID REFERENCES students(id),
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
     date DATE DEFAULT CURRENT_DATE,
     pickup BOOLEAN DEFAULT FALSE,
-    drop_off BOOLEAN DEFAULT FALSE, -- using drop_off instead of DROP as it's a reserved keyword
+    drop_off BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(student_id, date)
 );
 
--- 6. Notifications table
+-- 7. Notifications table
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
     type TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+
+-- Step 1: Create the trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 2: Attach to transportation_systems
+DROP TRIGGER IF EXISTS set_transportation_systems_updated_at ON transportation_systems;
+CREATE TRIGGER set_transportation_systems_updated_at
+BEFORE UPDATE ON transportation_systems
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();

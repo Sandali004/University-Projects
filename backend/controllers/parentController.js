@@ -2,79 +2,82 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { supabase } from "../utils/supabase.js";
 
+
+// REGISTER PARENT
+// Saves parent into the 'users' table with role = 'parent'
+
 export const registerParent = async (req, res) => {
   try {
-    const { name, email, password, childName, role = 'parent' } = req.body;
+    console.log("[Backend] registerParent body:", req.body);
+    const { name, email, password } = req.body;
 
-    // 1. Structural Validation
     const errors = [];
-    if (!name || name.trim().length < 2) errors.push("Full name is required (at least 2 characters).");
+    if (!name || name.trim().length < 2)         errors.push("Full name is required (at least 2 characters).");
     if (!email || !/^\S+@\S+\.\S+$/.test(email)) errors.push("A valid email address is required.");
-    if (!password || password.length < 6) errors.push("Password must be at least 6 characters long.");
-    if (!childName || childName.trim().length < 2) errors.push("Child's full name is required.");
+    if (!password || password.length < 6)         errors.push("Password must be at least 6 characters.");
 
     if (errors.length > 0) {
-      return res.status(400).json({ 
-        message: "Registration failed due to invalid parameters.", 
-        errors,
-        validParameters: {
-          name: "Text (min 2 chars)",
-          email: "Valid email format",
-          password: "Text (min 6 chars)",
-          childName: "Text (min 2 chars)"
-        }
-      });
+      return res.status(400).json({ message: "Validation failed.", errors });
     }
 
-    // 2. Hash the password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // 3. Insert into users table
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .insert([{ name, email, password_hash: passwordHash, role }])
+    // Insert into 'users' table with role = 'parent'
+    const { data, error } = await supabase
+      .from("users")
+      .insert([{
+        name:          name.trim(),
+        email:         email.trim().toLowerCase(),
+        password_hash: passwordHash,
+        role:          "parent",
+      }])
       .select()
       .single();
 
-    if (userError) {
-      if (userError.code === '23505') {
+    if (error) {
+      console.error("Supabase error (registerParent):", error);
+      if (error.code === "23505") {
         return res.status(409).json({ message: "This email address is already registered." });
       }
-      throw userError;
+      throw error;
     }
 
-    // 4. Insert into students table
-    const { error: studentError } = await supabase
-      .from('students')
-      .insert([{ name: childName, parent_id: userData.id }]);
+    return res.status(201).json({
+      message: "Parent registered successfully!",
+      user: { id: data.id, name: data.name, email: data.email, role: data.role },
+    });
 
-    if (studentError) {
-      // Cleanup created user if student creation fails
-      await supabase.from('users').delete().eq('id', userData.id);
-      throw studentError;
-    }
-
-    res.status(201).json({ message: "Parent registered successfully.", user: userData });
   } catch (error) {
-    console.error("Registration Error:", error);
-    res.status(500).json({ message: "An internal server error occurred during registration.", error: error.message });
+    console.error("Unexpected error (registerParent):", error);
+    return res.status(500).json({ 
+      message: "Server error during registration.", 
+      error: error.message,
+      details: error
+    });
   }
 };
+
+
+
+// LOGIN PARENT
+// Finds user in 'users' table by email WHERE role = 'parent'
 
 export const loginParent = async (req, res) => {
   try {
     const { email, input, password } = req.body;
-    const identifier = email || input;
-    
+    const identifier = (email || input || "").trim().toLowerCase();
+
     if (!identifier || !password) {
-      return res.status(400).json({ message: "Email and password are required." });
+      return res.status(400).json({ message: "Please provide your email and password." });
     }
 
+    // Find user by email AND role = 'parent'
     const { data: user, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('email', identifier)
+      .from("users")
+      .select("*")
+      .eq("email", identifier)
+      .eq("role", "parent")
       .single();
 
     if (error || !user) {
@@ -87,18 +90,19 @@ export const loginParent = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user.id, role: user.role }, 
-      process.env.JWT_SECRET || "fallback_secret_key", 
+      { id: user.id, role: user.role },
+      process.env.JWT_SECRET || "fallback_secret_key",
       { expiresIn: "10d" }
     );
 
-    res.status(200).json({ 
-      message: "Login successful", 
-      token, 
-      user: { id: user.id, name: user.name, email: user.email, role: user.role } 
+    return res.status(200).json({
+      message: "Login successful!",
+      token,
+      user: { id: user.id, name: user.name, email: user.email, role: user.role }, // changed 'parent' to 'user'
     });
 
   } catch (error) {
-    res.status(500).json({ message: "Error logging in", error: error.message });
+    console.error("Unexpected error (loginParent):", error);
+    return res.status(500).json({ message: "Server error during login.", error: error.message });
   }
 };

@@ -1,43 +1,61 @@
-import memoryLocations from "../models/Location.js";
+import { supabase } from "../utils/supabase.js";
 
 // Controller function: updateDriverLocation
 // 1. Accepts data from req.body
 // 2. Validates required fields
-// 3. Saves or updates the driver’s latest location
+// 3. Saves or updates the driver’s latest location in Supabase
 // 4. Returns a success response
 export const updateDriverLocation = async (req, res) => {
   try {
     // 1. Accept data from the incoming request body
-    const { driverId, latitude, longitude, timestamp } = req.body;
+    const { driverId, latitude, longitude, timestamp, driverName } = req.body;
 
-    // 2. Validate required fields (never trust user input directly)
+    console.log('[LocationController] Received location update');
+    console.log('[LocationController] Driver ID:', driverId);
+    console.log('[LocationController] Coordinates:', { latitude, longitude });
+
+    // 2. Validate required fields
     if (!driverId || !latitude || !longitude || !timestamp) {
+      console.warn('[LocationController] Missing required fields');
       return res.status(400).json({ 
         success: false,
         message: "Missing required location data. Please send driverId, latitude, longitude, and timestamp." 
       });
     }
 
-    // 3. In-memory temporary database logic (Replace with MongoDB locationSchema.findOneAndUpdate later if needed)
-    // Check if driver has already sent a location point before
-    const existingIndex = memoryLocations.findIndex(loc => loc.driverId === driverId);
+    // 3. Update in Supabase transportation_systems table
+    // Note: We update with required name field to avoid NOT NULL constraint issues
+    const payload = {
+      current_lat: latitude, 
+      current_lng: longitude,
+      updated_at: new Date().toISOString(),
+    };
 
-    if (existingIndex !== -1) {
-      // Driver exists -> Update the driver's latest location
-      memoryLocations[existingIndex] = { driverId, latitude, longitude, timestamp };
-    } else {
-      // Driver is new -> Save a brand new location entry
-      memoryLocations.push({ driverId, latitude, longitude, timestamp });
+    // If driver name is provided, include it
+    if (driverName) {
+      payload.name = driverName;
     }
 
-    // Print a simple clean log to terminal confirming update happened securely
-    console.log(`[Live Location] Updated for Driver: ${driverId} ` +
-                `| Lat: ${latitude} | Lng: ${longitude} | Time: ${timestamp}`);
+    console.log('[LocationController] Updating transportation_systems table');
+    console.log('[LocationController] Payload:', payload);
+
+    const { error, data } = await supabase
+      .from('transportation_systems')
+      .update(payload)
+      .eq('driver_id', driverId)
+      .select();
+
+    if (error) {
+      console.error('[LocationController] Supabase error:', error.code, error.message);
+      throw error;
+    }
+
+    console.log('[LocationController] Update successful, rows affected:', data?.length || 0);
 
     // 4. Return a successful, structured response back to the React Native app
     return res.status(200).json({ 
       success: true, 
-      message: "Driver live location updated successfully in memory.",
+      message: "Driver live location updated successfully.",
       data: { driverId, latitude, longitude, timestamp }
     });
 

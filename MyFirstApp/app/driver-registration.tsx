@@ -51,8 +51,6 @@ export default function DriverRegistration() {
 
     const currentQ = questions[currentStep];
 
-    // No seat validation needed now as it's moved to system creation
-
     // Add the user's answer to the chat
     setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: value }]);
     setInputText('');
@@ -90,14 +88,6 @@ export default function DriverRegistration() {
     try {
       console.log("Submitting Driver Registration:", formData);
       
-      // Map frontend fields to backend expected fields
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: 'driver'
-      };
-
       // Call the registration service — it goes straight to Supabase
       const result = await registerDriver(formData);
 

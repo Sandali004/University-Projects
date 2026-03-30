@@ -1,14 +1,24 @@
 import React from 'react';
+<<<<<<< HEAD
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 // MapView displays the map, Marker shows a specific point on the map
 import MapView, { Marker } from 'react-native-maps';
 import { useLocalSearchParams, useRouter } from 'expo-router'; // Hook to access navigation parameters
 import { Ionicons } from '@expo/vector-icons';
+=======
+import { StyleSheet, View, Text } from 'react-native';
+// MapView displays the map, Marker shows a specific point on the map
+import MapView, { Marker } from 'react-native-maps';
+import { useLocalSearchParams } from 'expo-router'; // Hook to access navigation parameters
+>>>>>>> IT24103379
 
 // Screen Component: Simple Map Screen
 export default function MapScreen() {
   const { role } = useLocalSearchParams(); // Extract the 'role' passed securely via navigation params
+<<<<<<< HEAD
   const router = useRouter(); // Hook to perform navigation
+=======
+>>>>>>> IT24103379
 
   // A sample physical location (Colombo, Sri Lanka coordinates)
   // latitudeDelta & longitudeDelta control the zoom level (smaller = closer)
@@ -41,6 +51,7 @@ export default function MapScreen() {
       <View style={styles.floatingBadge}>
         <Text style={styles.badgeText}>Logged in as: {role || 'Unknown'}</Text>
       </View>
+<<<<<<< HEAD
 
       {/* Driver Profile Button */}
       <TouchableOpacity 
@@ -49,6 +60,8 @@ export default function MapScreen() {
       >
         <Ionicons name="person" size={24} color="#0F172A" />
       </TouchableOpacity>
+=======
+>>>>>>> IT24103379
     </View>
   );
 }
@@ -64,7 +77,11 @@ const styles = StyleSheet.create({
   },
   floatingBadge: {
     position: 'absolute', // Float over map
+<<<<<<< HEAD
     top: 50,
+=======
+    top: 40,
+>>>>>>> IT24103379
     alignSelf: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.9)', // Slight opacity for modern look
     paddingHorizontal: 20,
@@ -81,6 +98,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
+<<<<<<< HEAD
   profileButton: {
     position: 'absolute', // Float over map
     top: 50,
@@ -97,4 +115,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5, // Android drop shadow
   },
+=======
+>>>>>>> IT24103379
 });

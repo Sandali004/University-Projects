@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { Tabs, usePathname, useRouter, Redirect } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
@@ -49,6 +50,23 @@ export default function DashboardLayout() {
       {/* Dashboard summary tab */}
       <Tabs.Screen
         name="home"
+=======
+import { Tabs } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+export default function DashboardLayout() {
+  return (
+    <Tabs
+      screenOptions={{
+        headerShown: true,
+        headerStyle: { backgroundColor: '#3B82F6' },
+        headerTintColor: '#fff',
+        tabBarActiveTintColor: '#3B82F6',
+      }}
+    >
+      <Tabs.Screen
+        name="index"
+>>>>>>> IT24103379
         options={{
           title: 'Dashboard',
           tabBarIcon: ({ color, size }) => (
@@ -56,6 +74,7 @@ export default function DashboardLayout() {
           ),
         }}
       />
+<<<<<<< HEAD
 
       {/* Live Map tab — hidden for everyone, only accessible via System view */}
       <Tabs.Screen
@@ -90,6 +109,14 @@ export default function DashboardLayout() {
           title: 'Notifications',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="bell-outline" size={size} color={color} />
+=======
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Live Map',
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="map-marker-radius" size={size} color={color} />
+>>>>>>> IT24103379
           ),
         }}
       />

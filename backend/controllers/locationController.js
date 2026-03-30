@@ -15,7 +15,7 @@ export const updateDriverLocation = async (req, res) => {
     console.log('[LocationController] Coordinates:', { latitude, longitude });
 
     // 2. Validate required fields
-    if (!driverId || !latitude || !longitude || !timestamp) {
+    if (!driverId || latitude == null || longitude == null || !timestamp) {
       console.warn('[LocationController] Missing required fields');
       return res.status(400).json({ 
         success: false,

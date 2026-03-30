@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator, FlatList, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -9,10 +9,11 @@ import api from '../../services/api';
 
 export default function SystemScreen() {
   const router = useRouter();
-  const [role, setRole] = useState<'Driver' | 'Parent' | null>(null);
+  const [role, setRole] = useState<'Driver' | 'Parent' | 'Attendant' | null>(null);
   const [userData, setUserData] = useState<any>(null);
   const [system, setSystem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isUpdatingPresence, setIsUpdatingPresence] = useState(false);
   
   // Create System Form State (Driver)
   const [name, setName] = useState('');
@@ -28,6 +29,8 @@ export default function SystemScreen() {
   // Join System State (Parent)
   const [joinCode, setJoinCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [showDriverModal, setShowDriverModal] = useState(false);
+  const [showVehicleModal, setShowVehicleModal] = useState(false);
 
   // Parents List (Driver)
   const [parents, setParents] = useState<any[]>([]);
@@ -118,6 +121,14 @@ export default function SystemScreen() {
         setRole('Parent');
         setUserData(data);
         await fetchParentSystem(data.id);
+      } else {
+        const attendantDataStr = await AsyncStorage.getItem('attendantData');
+        if (attendantDataStr) {
+          const data = JSON.parse(attendantDataStr);
+          setRole('Attendant');
+          setUserData(data);
+          await fetchAttendantSystem(data.id);
+        }
       }
     } catch (error) {
       console.log('Error loading initial data', error);
@@ -165,6 +176,29 @@ export default function SystemScreen() {
     }
   };
 
+  const fetchAttendantSystem = async (attendantId: string) => {
+    try {
+      const response = await api.get(`/system/attendant/${attendantId}`);
+      setSystem(response.data.system);
+    } catch (error) {
+      console.log('Error fetching attendant system');
+    }
+  };
+
+  const togglePresence = async () => {
+    if (!userData?.id || isUpdatingPresence) return;
+    try {
+      setIsUpdatingPresence(true);
+      const newPresence = !system.is_present;
+      await api.put(`/system/attendant/${userData.id}/presence`, { isPresent: newPresence });
+      setSystem({ ...system, is_present: newPresence });
+    } catch (error) {
+      Alert.alert('Error', 'Could not update presence status');
+    } finally {
+      setIsUpdatingPresence(false);
+    }
+  };
+
   const handleCreateSystem = async () => {
     if (!name || !plateNumber || !maxSeats) {
       Alert.alert('Error', 'Please fill all required fields (System Name, Plate Number, Seats).');
@@ -209,9 +243,15 @@ export default function SystemScreen() {
     if (!joinCode) return;
     try {
       setIsJoining(true);
-      const response = await api.post('/system/join', { parentId: userData.id, joinCode });
+      const endpoint = role === 'Attendant' ? '/system/join-attendant' : '/system/join';
+      const payload = role === 'Attendant' 
+        ? { attendantId: userData.id, joinCode }
+        : { parentId: userData.id, joinCode };
+
+      await api.post(endpoint, payload);
       Alert.alert('Success', 'Joined system successfully!');
-      fetchParentSystem(userData.id);
+      if (role === 'Attendant') fetchAttendantSystem(userData.id);
+      else fetchParentSystem(userData.id);
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Invalid join code');
     } finally {
@@ -299,7 +339,6 @@ export default function SystemScreen() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Parents in System</Text>
           {parents.length > 0 ? (
             parents.map((item) => (
               <View key={item.parent_id} style={styles.parentItem}>
@@ -314,6 +353,25 @@ export default function SystemScreen() {
             ))
           ) : (
             <Text style={styles.emptyText}>No parents have joined yet.</Text>
+          )}
+
+          {system.attendant && (
+            <>
+              <Text style={styles.sectionTitle}>System Attendant</Text>
+              <View style={styles.parentItem}>
+                <View>
+                  <Text style={styles.parentName}>{system.attendant.name}</Text>
+                  <Text style={[styles.statusText, { color: system.attendant.is_present ? '#10B981' : '#EF4444' }]}>
+                    {system.attendant.is_present ? 'Present' : 'Not Present'}
+                  </Text>
+                </View>
+                <MaterialCommunityIcons 
+                  name="shield-check" 
+                  size={24} 
+                  color={system.attendant.is_present ? '#10B981' : '#CBD5E1'} 
+                />
+              </View>
+            </>
           )}
         </ScrollView>
       );
@@ -395,7 +453,43 @@ export default function SystemScreen() {
               <MaterialCommunityIcons name="map-marker" size={20} color="#64748B" />
               <Text style={styles.infoLabel}>Route: {system.routes?.name || 'Main Route'}</Text>
             </View>
+
+            <View style={styles.detailActionsRow}>
+              <TouchableOpacity style={styles.detailBtn} onPress={() => setShowDriverModal(true)}>
+                <MaterialCommunityIcons name="account-details" size={20} color="#fff" />
+                <Text style={styles.detailBtnText}>Driver Details</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.detailBtn, { backgroundColor: '#10B981' }]} onPress={() => setShowVehicleModal(true)}>
+                <MaterialCommunityIcons name="bus-side" size={20} color="#fff" />
+                <Text style={styles.detailBtnText}>Vehicle Details</Text>
+              </TouchableOpacity>
+            </View>
           </View>
+
+          {system.attendant ? (
+            <View style={[styles.card, { borderLeftWidth: 4, borderLeftColor: system.attendant.is_present ? '#10B981' : '#EF4444' }]}>
+               <View style={styles.row}>
+                <View>
+                  <Text style={styles.smallTitle}>SYSTEM ATTENDANT</Text>
+                  <Text style={styles.cardTitle}>{system.attendant.name}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: system.attendant.is_present ? '#D1FAE5' : '#FEE2E2' }]}>
+                  <Text style={[styles.statusBadgeText, { color: system.attendant.is_present ? '#059669' : '#DC2626' }]}>
+                    {system.attendant.is_present ? 'ON BOARD' : 'OFF DUTY'}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.infoTextSub}>
+                {system.attendant.is_present 
+                  ? "The attendant is currently present in the vehicle." 
+                  : "The attendant is registered but not currently on board."}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.card}>
+              <Text style={styles.infoTextSub}>No attendant registered to this system yet.</Text>
+            </View>
+          )}
           
           <View style={styles.trackingHeaderRow}>
             <Text style={styles.sectionTitle}>Live Tracking</Text>
@@ -427,6 +521,57 @@ export default function SystemScreen() {
               </View>
             )}
           </View>
+
+          {/* Modals for Details */}
+          <Modal visible={showDriverModal} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.detailsModalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Driver Details</Text>
+                  <TouchableOpacity onPress={() => setShowDriverModal(false)}>
+                    <MaterialCommunityIcons name="close" size={24} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Name</Text>
+                  <Text style={styles.detailValue}>{system.driver?.name || 'Not available'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Email</Text>
+                  <Text style={styles.detailValue}>{system.driver?.email || 'Not available'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>License Number</Text>
+                  <Text style={styles.detailValue}>{system.driver?.license_number || 'Not available'}</Text>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          <Modal visible={showVehicleModal} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.detailsModalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Vehicle Details</Text>
+                  <TouchableOpacity onPress={() => setShowVehicleModal(false)}>
+                    <MaterialCommunityIcons name="close" size={24} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Vehicle Type</Text>
+                  <Text style={styles.detailValue}>{system.vehicle_type || 'Not available'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Number of Seats</Text>
+                  <Text style={styles.detailValue}>{system.max_seats || 'Not available'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>Registration Number</Text>
+                  <Text style={styles.detailValue}>{system.plate_number || 'Not available'}</Text>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </ScrollView>
       );
     }
@@ -445,6 +590,89 @@ export default function SystemScreen() {
         />
         <TouchableOpacity style={styles.submitButton} onPress={handleJoinSystem} disabled={isJoining}>
           {isJoining ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Join System</Text>}
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // --- ATTENDANT VIEWS ---
+  if (role === 'Attendant') {
+    if (system) {
+      return (
+        <ScrollView style={styles.container}>
+          <View style={styles.card}>
+            <Text style={styles.smallTitle}>MY SYSTEM</Text>
+            <Text style={styles.cardTitle}>{system.name}</Text>
+            
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="bus" size={20} color="#8B5CF6" />
+              <Text style={styles.infoLabel}>{system.vehicle_type} - {system.plate_number}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons name="account-tie" size={20} color="#64748B" />
+              <Text style={styles.infoLabel}>Driver: {system.driver?.name || 'Assigned Driver'}</Text>
+            </View>
+          </View>
+
+          <View style={[styles.card, { alignItems: 'center', paddingVertical: 30 }]}>
+            <Text style={styles.sectionTitle}>Presence Status</Text>
+            <Text style={styles.presenceDesc}>
+              Toggle your status when you board or leave the vehicle.
+            </Text>
+            
+            <TouchableOpacity 
+              style={[
+                styles.presenceToggle, 
+                { backgroundColor: system.is_present ? '#10B981' : '#EF4444' }
+              ]} 
+              onPress={togglePresence}
+              disabled={isUpdatingPresence}
+            >
+              {isUpdatingPresence ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons 
+                    name={system.is_present ? "hand-pointing-right" : "hand-pointing-left"} 
+                    size={28} 
+                    color="#fff" 
+                  />
+                  <Text style={styles.presenceToggleText}>
+                    {system.is_present ? "I AM PRESENT" : "I AM NOT PRESENT"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+            
+            <Text style={[styles.statusText, { marginTop: 15, fontWeight: 'bold', color: system.is_present ? '#059669' : '#DC2626' }]}>
+              Current Status: {system.is_present ? 'Present' : 'Not Present'}
+            </Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <MaterialCommunityIcons name="information-outline" size={20} color="#0369A1" />
+            <Text style={styles.infoText}>
+              Your status is visible to all parents and the driver in real-time.
+            </Text>
+          </View>
+        </ScrollView>
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>Join a System</Text>
+        <Text style={styles.subtitle}>Enter the join code provided by your driver to start working.</Text>
+        <TextInput 
+          style={[styles.input, styles.codeInput]} 
+          value={joinCode} 
+          onChangeText={setJoinCode} 
+          placeholder="ABCDEF"
+          autoCapitalize="characters"
+          maxLength={6}
+        />
+        <TouchableOpacity style={styles.submitButton} onPress={handleJoinSystem} disabled={isJoining}>
+          {isJoining ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitButtonText}>Register to System</Text>}
         </TouchableOpacity>
       </View>
     );
@@ -504,5 +732,23 @@ const styles = StyleSheet.create({
   trackingHeaderRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 16 },
   liveBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginLeft: 10 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 6 },
-  liveText: { fontSize: 10, fontWeight: 'bold', color: '#B91C1C' }
+  liveText: { fontSize: 10, fontWeight: 'bold', color: '#B91C1C' },
+  detailActionsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, gap: 10 },
+  detailBtn: { flex: 1, backgroundColor: '#3B82F6', paddingVertical: 12, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  detailBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  detailsModalContent: { backgroundColor: '#fff', width: '100%', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 10 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingBottom: 15 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1E293B' },
+  detailItem: { marginBottom: 15 },
+  detailLabel: { fontSize: 14, color: '#64748B', marginBottom: 4 },
+  detailValue: { fontSize: 16, fontWeight: '600', color: '#1E293B' },
+  statusText: { fontSize: 14, color: '#64748B' },
+  smallTitle: { fontSize: 11, fontWeight: '900', color: '#94A3B8', letterSpacing: 1, marginBottom: 4 },
+  infoTextSub: { fontSize: 13, color: '#64748B', marginTop: 10, fontStyle: 'italic' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, alignSelf: 'flex-start' },
+  statusBadgeText: { fontSize: 11, fontWeight: '900' },
+  presenceToggle: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 30, paddingVertical: 20, borderRadius: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8 },
+  presenceToggleText: { color: '#fff', fontSize: 18, fontWeight: '900' },
+  presenceDesc: { textAlign: 'center', color: '#64748B', marginBottom: 25, paddingHorizontal: 20 }
 });

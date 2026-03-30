@@ -89,6 +89,8 @@ export default function MapScreen() {
         }
       );
     } catch (e: any) {
+      console.error(e);
+      Alert.alert('Error', 'Failed to start tracking.');
       setIsTracking(false);
     }
   };

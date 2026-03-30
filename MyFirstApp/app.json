@@ -24,12 +24,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-<<<<<<< HEAD
     },
     "updates": {
       "enabled": false
-=======
->>>>>>> IT24103379
     }
   }
 }

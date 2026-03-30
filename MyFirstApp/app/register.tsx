@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, Keyboard
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 
-<<<<<<< HEAD
 interface Question {
   id: string;
   type: string;
@@ -12,9 +11,6 @@ interface Question {
 }
 
 const questions: Question[] = [
-=======
-const questions = [
->>>>>>> IT24103379
   { id: 'name', type: 'text', question: 'Hello! I am here to help you register. What is your full name?' },
   { id: 'phone', type: 'phone', question: 'Nice to meet you! What is your phone number?' },
   { id: 'email', type: 'email', question: 'What is your email address?' },
@@ -27,7 +23,6 @@ const questions = [
 ];
 
 export default function RegisterScreen() {
-<<<<<<< HEAD
   const [messages, setMessages] = useState<any[]>([]);
   const [currentStep, setCurrentStep] = useState(0);
   const [inputText, setInputText] = useState('');
@@ -35,26 +30,13 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const flatListRef = useRef<any>(null);
-=======
-  const [messages, setMessages] = useState([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [inputText, setInputText] = useState('');
-  const [formData, setFormData] = useState({});
-  const [loading, setLoading] = useState(false);
-  const router = useRouter();
-  const flatListRef = useRef();
->>>>>>> IT24103379
 
   useEffect(() => {
     // Start the chat by showing the first question
     setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].question }]);
   }, []);
 
-<<<<<<< HEAD
   const handleSend = async (forcedValue: string | null = null) => {
-=======
-  const handleSend = async (forcedValue = null) => {
->>>>>>> IT24103379
     const value = forcedValue || inputText.trim();
     if (!value) return;
 
@@ -105,7 +87,6 @@ export default function RegisterScreen() {
     }
   };
 
-<<<<<<< HEAD
   const submitRegistration = async (data: any) => {
     setLoading(true);
     try {
@@ -149,19 +130,6 @@ export default function RegisterScreen() {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-=======
-  const submitRegistration = async (data) => {
-    setLoading(true);
-    try {
-      const response = await api.post('/driver/register', data);
-      Alert.alert('Success', 'Registration completed successfully!', [
-        { text: 'Login', onPress: () => router.replace('/') }
-      ]);
-    } catch (error) {
-      console.error(error.response?.data || error.message);
-      Alert.alert('Error', error.response?.data?.message || 'Registration failed.');
-      setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'Registration failed. Let\'s try again.' }]);
->>>>>>> IT24103379
     } finally {
       setLoading(false);
     }
@@ -192,15 +160,9 @@ export default function RegisterScreen() {
       />
 
       <View style={styles.inputContainer}>
-<<<<<<< HEAD
         {currentQ?.type === 'choice' && currentQ.options ? (
           <View style={styles.choicesContainer}>
             {currentQ.options.map((opt: string) => (
-=======
-        {currentQ?.type === 'choice' ? (
-          <View style={styles.choicesContainer}>
-            {currentQ.options.map(opt => (
->>>>>>> IT24103379
               <TouchableOpacity key={opt} style={styles.choiceButton} onPress={() => handleSend(opt)}>
                 <Text style={styles.choiceText}>{opt}</Text>
               </TouchableOpacity>

@@ -6,10 +6,6 @@ import { registerDriver, loginDriver, sendAlert } from "../controllers/driverCon
 const router = express.Router();
 
 // Define a POST route for driver registration
-<<<<<<< HEAD
-=======
-// When a client sends a POST request to /api/driver/register, call registerDriver function
->>>>>>> IT24103379
 router.post("/register", registerDriver);
 
 // Define a POST route for driver login

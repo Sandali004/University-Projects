@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // Parent Registration - Chatbot Screen
 // Collects parent/child info step-by-step and saves via Backend API
 
@@ -50,48 +49,6 @@ export default function ParentRegistration() {
 
     const currentQ = questions[currentStep];
     setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: value }]);
-=======
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import api from '../services/api';
-
-// Parent specific questions
-const questions = [
-  { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Parent. What is your full name?' },
-  { id: 'username', type: 'text', text: 'Please choose a unique username for logging in.' },
-  { id: 'phone', type: 'phone', text: 'What is your phone number?' },
-  { id: 'email', type: 'email', text: 'What is your email address?' },
-  { id: 'password', type: 'password', text: 'Please enter a password.' },
-  { id: 'childName', type: 'text', text: 'What is your child\'s name?' },
-  { id: 'childGrade', type: 'text', text: 'What is your child\'s grade/class?' },
-  { id: 'pickupLocation', type: 'text', text: 'What is the pickup location?' },
-  { id: 'dropLocation', type: 'text', text: 'What is the drop location?' },
-  { id: 'emergencyContact', type: 'phone', text: 'Finally, what is your emergency contact number?' },
-];
-
-export default function ParentRegistration() {
-  const [messages, setMessages] = useState<any[]>([]);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [inputText, setInputText] = useState('');
-  const [formData, setFormData] = useState<any>({});
-  const [isFinished, setIsFinished] = useState(false);
-  const router = useRouter();
-  const flatListRef = useRef<any>();
-
-  useEffect(() => {
-    setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
-  }, []);
-
-  const handleSend = () => {
-    const value = inputText.trim();
-    if (!value) return;
-
-    const currentQ = questions[currentStep];
-
-    const newMessages = [...messages, { id: Date.now().toString(), sender: 'user', text: value }];
-    setMessages(newMessages);
->>>>>>> IT24103379
     setInputText('');
 
     const updatedFormData = { ...formData, [currentQ.id]: value };
@@ -99,7 +56,6 @@ export default function ParentRegistration() {
 
     if (currentStep < questions.length - 1) {
       setTimeout(() => {
-<<<<<<< HEAD
         setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
         setCurrentStep(currentStep + 1);
       }, 450);
@@ -153,29 +109,6 @@ export default function ParentRegistration() {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } finally {
       setIsLoading(false);
-=======
-        setMessages((prev: any[]) => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
-        setCurrentStep(currentStep + 1);
-      }, 500);
-    } else {
-      setIsFinished(true);
-      setTimeout(() => {
-        setMessages((prev: any[]) => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'All done! Please submit your registration below.' }]);
-      }, 500);
-    }
-  };
-
-  const handleSubmit = async () => {
-    try {
-      console.log("Submitting Parent Registration:", formData);
-      await api.post('/parent/register', formData);
-      Alert.alert('Success', 'Parent Registration Complete!', [
-        { text: 'OK', onPress: () => router.push('/parent-login') } // Route directly to their portal
-      ]);
-    } catch (error: any) {
-      console.log("Parent Registration Error:", error.response?.data || error.message);
-      Alert.alert('Registration Failed', error.response?.data?.message || error.message);
->>>>>>> IT24103379
     }
   };
 
@@ -198,7 +131,6 @@ export default function ParentRegistration() {
 
       <View style={styles.inputContainer}>
         {isFinished ? (
-<<<<<<< HEAD
           <View>
             <TouchableOpacity style={[styles.submitButton, isLoading && styles.submitButtonDisabled]} onPress={handleSubmit} disabled={isLoading}>
               <Text style={styles.submitButtonText}>{isLoading ? 'Submitting...' : 'Submit Registration'}</Text>
@@ -207,11 +139,6 @@ export default function ParentRegistration() {
               <Text style={styles.resetButtonText}>Start Over / Fix Details</Text>
             </TouchableOpacity>
           </View>
-=======
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit Registration</Text>
-          </TouchableOpacity>
->>>>>>> IT24103379
         ) : (
           <View style={styles.textInputRow}>
             <TextInput
@@ -224,13 +151,8 @@ export default function ParentRegistration() {
               autoCapitalize={currentQ?.type === 'email' || currentQ?.type === 'password' ? 'none' : 'words'}
               onSubmitEditing={() => handleSend()}
             />
-<<<<<<< HEAD
             <TouchableOpacity
               style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-=======
-            <TouchableOpacity 
-              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]} 
->>>>>>> IT24103379
               onPress={() => handleSend()}
               disabled={!inputText.trim()}
             >
@@ -248,17 +170,12 @@ const styles = StyleSheet.create({
   chatContainer: { padding: 16, paddingBottom: 24 },
   bubble: { maxWidth: '80%', padding: 14, borderRadius: 20, marginBottom: 12 },
   botBubble: { backgroundColor: '#FFFFFF', alignSelf: 'flex-start', borderBottomLeftRadius: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-<<<<<<< HEAD
   userBubble: { backgroundColor: '#10B981', alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-=======
-  userBubble: { backgroundColor: '#3B82F6', alignSelf: 'flex-end', borderBottomRightRadius: 4 },
->>>>>>> IT24103379
   bubbleText: { fontSize: 16, color: '#334155' },
   userBubbleText: { color: '#FFFFFF' },
   inputContainer: { padding: 16, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E2E8F0' },
   textInputRow: { flexDirection: 'row' },
   input: { flex: 1, backgroundColor: '#F1F5F9', borderRadius: 24, paddingHorizontal: 20, paddingVertical: 12, fontSize: 16, marginRight: 10 },
-<<<<<<< HEAD
   sendButton: { backgroundColor: '#10B981', borderRadius: 24, justifyContent: 'center', paddingHorizontal: 20 },
   sendButtonDisabled: { backgroundColor: '#94A3B8' },
   sendButtonText: { color: '#FFFFFF', fontWeight: 'bold' },
@@ -267,11 +184,4 @@ const styles = StyleSheet.create({
   submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   resetButton: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
   resetButtonText: { color: '#64748B', fontSize: 14, textDecorationLine: 'underline' },
-=======
-  sendButton: { backgroundColor: '#3B82F6', borderRadius: 24, justifyContent: 'center', paddingHorizontal: 20 },
-  sendButtonDisabled: { backgroundColor: '#94A3B8' },
-  sendButtonText: { color: '#FFFFFF', fontWeight: 'bold' },
-  submitButton: { backgroundColor: '#10B981', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-  submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }
->>>>>>> IT24103379
 });

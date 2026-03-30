@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // ============================================================
 // Driver Login Screen
 // Authenticates via Backend API
@@ -22,24 +21,10 @@ interface Question {
 
 const questions: Question[] = [
   { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Driver. What is your full name?' },
-=======
-// Import React and UI Components
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, KeyboardAvoidingView, Platform, Alert } from 'react-native';
-import { useRouter } from 'expo-router'; // React Navigation routing for Expo
-import api from '../services/api';
-
-// Driver specific questions sequence
-// Each object represents one step in the chatbot conversation
-const questions = [
-  { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Driver. What is your full name?' },
-  { id: 'username', type: 'text', text: 'Please choose a unique username for logging in.' },
->>>>>>> IT24103379
   { id: 'phone', type: 'phone', text: 'Great. What is your phone number?' },
   { id: 'email', type: 'email', text: 'What is your email address?' },
   { id: 'password', type: 'password', text: 'Please enter a secure password.' },
   { id: 'licenseNumber', type: 'text', text: 'What is your driving license number?' },
-<<<<<<< HEAD
   { id: 'emergencyContact', type: 'phone', text: 'Finally, what is your emergency contact number?' },
 ];
 
@@ -65,8 +50,6 @@ export default function DriverRegistration() {
     if (!value) return;
 
     const currentQ = questions[currentStep];
-
-    // No seat validation needed now as it's moved to system creation
 
     // Add the user's answer to the chat
     setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'user', text: value }]);
@@ -105,14 +88,6 @@ export default function DriverRegistration() {
     try {
       console.log("Submitting Driver Registration:", formData);
       
-      // Map frontend fields to backend expected fields
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: 'driver'
-      };
-
       // Call the registration service — it goes straight to Supabase
       const result = await registerDriver(formData);
 
@@ -145,117 +120,11 @@ export default function DriverRegistration() {
       setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
     } finally {
       setIsLoading(false);
-=======
-  { id: 'vehicleType', type: 'choice', text: 'What is your vehicle type?', options: ['Car', 'Van', 'Bus'] },
-  { id: 'vehicleNumber', type: 'text', text: 'What is your vehicle number?' },
-  { id: 'seatCount', type: 'number', text: 'How many seats are in the vehicle?' },
-  { id: 'route', type: 'text', text: 'What is your route? (e.g., Colombo - Kandy)' },
-  { id: 'emergencyContact', type: 'phone', text: 'Finally, what is your emergency contact number?' },
-];
-
-export default function DriverRegistration() {
-  // State variables manage the chatbot's memory
-  const [messages, setMessages] = useState<any[]>([]); // Holds all chat bubbles (bot and user)
-  const [currentStep, setCurrentStep] = useState(0); // Tracks which question we are currently on
-  const [inputText, setInputText] = useState(''); // Holds the text currently typed in the input box
-  const [formData, setFormData] = useState<any>({}); // Collects all the final answers to send to the backend
-  const [isFinished, setIsFinished] = useState(false); // True when all questions are answered
-  const router = useRouter(); // For navigating pages
-  const flatListRef = useRef<any>(); // Reference to the list to auto-scroll to the bottom
-
-  // useEffect runs once when the screen opens
-  useEffect(() => {
-    // Send the very first question when the screen loads
-    setMessages([{ id: Date.now().toString(), sender: 'bot', text: questions[0].text }]);
-  }, []);
-
-  // Function: Handles when the user presses 'Next' or selects an option
-  const handleSend = (forcedValue: string | null = null) => {
-    // 1. Get the value the user typed (or the button they pressed)
-    const value = forcedValue !== null ? forcedValue : inputText.trim();
-    if (!value) return; // Ignore if empty
-
-    const currentQ = questions[currentStep];
-
-    // 2. Seat validation logic (Specific to driver)
-    if (currentQ.id === 'seatCount') {
-      const seats = parseInt(value, 10);
-      const vehicleType = formData.vehicleType;
-      
-      // Ensure it's a number
-      if (isNaN(seats)) {
-        Alert.alert('Invalid', 'Please enter a valid number.');
-        return;
-      }
-      // Business rules for vehicle capacity
-      if (vehicleType === 'Car' && (seats < 4 || seats > 6)) {
-        Alert.alert('Validation Error', 'Car seat count must be between 4 and 6.');
-        return; // Stops here, asks again
-      }
-      if (vehicleType === 'Van' && (seats < 8 || seats > 15)) {
-        Alert.alert('Validation Error', 'Van seat count must be between 8 and 15.');
-        return;
-      }
-      if (vehicleType === 'Bus' && (seats < 20 || seats > 50)) {
-        Alert.alert('Validation Error', 'Bus seat count must be between 20 and 50.');
-        return;
-      }
-    }
-
-    // 3. Add the user's valid answer to the chat history array
-    const newMessages = [...messages, { id: Date.now().toString(), sender: 'user', text: value }];
-    setMessages(newMessages);
-    setInputText(''); // Clear input box
-
-    // 4. Save the answer in our formData object memory
-    const updatedFormData = { ...formData, [currentQ.id]: value };
-    setFormData(updatedFormData);
-
-    // 5. Check if there are more questions
-    if (currentStep < questions.length - 1) {
-      // Simulate a small delay before the bot asks the next question (makes it feel natural)
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: questions[currentStep + 1].text }]);
-        setCurrentStep(currentStep + 1); // Move to next step
-      }, 500);
-    } else {
-      // If no more questions, end the chat
-      setIsFinished(true);
-      setTimeout(() => {
-        setMessages(prev => [...prev, { id: Date.now().toString(), sender: 'bot', text: 'All done! Please submit your registration below.' }]);
-      }, 500);
-    }
-  };
-
-  // Function: Submit all collected data
-  const handleSubmit = async () => {
-    try {
-      console.log("Submitting Driver Registration:", formData); // Debug log exactly what was collected
-      await api.post('/driver/register', formData);
-      Alert.alert('Success', 'Driver Registration Complete!', [
-        { text: 'OK', onPress: () => router.push('/login') } // Go to login securely
-      ]);
-    } catch (error: any) {
-      console.log("Driver Registration Extracted Error:", error.response?.data ? JSON.stringify(error.response.data) : error.message);
-      
-      // Critical Fix: If the backend isn't reachable (Network Error or Timeout), auto-approve as a Mock Success for developmental continuity!
-      if (!error.response || error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-         console.log("Backend offline or timed out. Falling back to MOCK SUCCESS routing.");
-         Alert.alert('Mock Success (Server Offline)', 'The Node.js backend timed out, but we are moving you forward to test the frontend anyway!', [
-           { text: 'OK', onPress: () => router.push('/login') } 
-         ]);
-         return; // Immediately exit the function
-      }
-
-      // Display exactly what the Node.js server responded with if it legitimately connected but failed
-      Alert.alert('Registration Failed', error.response?.data?.message || error.message);
->>>>>>> IT24103379
     }
   };
 
   const currentQ = questions[currentStep];
 
-<<<<<<< HEAD
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Chat message list */}
@@ -264,25 +133,10 @@ export default function DriverRegistration() {
         data={messages}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-=======
-  // UI Code
-  return (
-    // KeyboardAvoidingView prevents the input box from being hidden behind the onscreen keyboard
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      
-      {/* Scrollable list of chat messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id} // Unique ID for each message bubble
-        renderItem={({ item }) => (
-          // Assign different styles based on who sent the message (user vs bot)
->>>>>>> IT24103379
           <View style={[styles.bubble, item.sender === 'user' ? styles.userBubble : styles.botBubble]}>
             <Text style={[styles.bubbleText, item.sender === 'user' && styles.userBubbleText]}>{item.text}</Text>
           </View>
         )}
-<<<<<<< HEAD
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         contentContainerStyle={styles.chatContainer}
       />
@@ -301,40 +155,18 @@ export default function DriverRegistration() {
         ) : currentQ?.type === 'choice' && currentQ.options ? (
           <View style={styles.choiceContainer}>
             {currentQ.options.map((opt: string) => (
-=======
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })} // Auto-scroll to bottom
-        contentContainerStyle={styles.chatContainer}
-      />
-
-      {/* Input section at the bottom */}
-      <View style={styles.inputContainer}>
-        {isFinished ? (
-          // Show submit button at the very end
-          <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-            <Text style={styles.submitButtonText}>Submit Registration</Text>
-          </TouchableOpacity>
-        ) : currentQ?.type === 'choice' ? (
-          // Show clickable option buttons if the question type is 'choice' (e.g., Vehicle Type)
-          <View style={styles.choiceContainer}>
-            {currentQ.options?.map((opt: string) => (
->>>>>>> IT24103379
               <TouchableOpacity key={opt} style={styles.choiceButton} onPress={() => handleSend(opt)}>
                 <Text style={styles.choiceText}>{opt}</Text>
               </TouchableOpacity>
             ))}
           </View>
         ) : (
-<<<<<<< HEAD
-=======
-          // Standard text input box
->>>>>>> IT24103379
           <View style={styles.textInputRow}>
             <TextInput
               style={styles.input}
               placeholder="Type your answer..."
               value={inputText}
               onChangeText={setInputText}
-<<<<<<< HEAD
               secureTextEntry={currentQ?.type === 'password'}
               keyboardType={currentQ?.type === 'number' || currentQ?.type === 'phone' ? 'numeric' : currentQ?.type === 'email' ? 'email-address' : 'default'}
               autoCapitalize={currentQ?.type === 'email' || currentQ?.type === 'password' ? 'none' : 'words'}
@@ -342,15 +174,6 @@ export default function DriverRegistration() {
             />
             <TouchableOpacity
               style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-=======
-              secureTextEntry={currentQ?.type === 'password'} // Hides password dots
-              keyboardType={currentQ?.type === 'number' || currentQ?.type === 'phone' ? 'numeric' : currentQ?.type === 'email' ? 'email-address' : 'default'}
-              autoCapitalize={currentQ?.type === 'email' || currentQ?.type === 'password' ? 'none' : 'words'}
-              onSubmitEditing={() => handleSend()} // Allows sending via keyboard enter key
-            />
-            <TouchableOpacity 
-              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]} 
->>>>>>> IT24103379
               onPress={() => handleSend()}
               disabled={!inputText.trim()}
             >
@@ -363,10 +186,6 @@ export default function DriverRegistration() {
   );
 }
 
-<<<<<<< HEAD
-=======
-// Styling classes layout
->>>>>>> IT24103379
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   chatContainer: { padding: 16, paddingBottom: 24 },
@@ -385,12 +204,8 @@ const styles = StyleSheet.create({
   choiceButton: { backgroundColor: '#E0F2FE', paddingVertical: 12, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: '#BAE6FD' },
   choiceText: { color: '#0284C7', fontWeight: 'bold' },
   submitButton: { backgroundColor: '#10B981', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
-<<<<<<< HEAD
   submitButtonDisabled: { backgroundColor: '#6EE7B7' },
   submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   resetButton: { marginTop: 10, paddingVertical: 12, alignItems: 'center' },
   resetButtonText: { color: '#64748B', fontSize: 14, textDecorationLine: 'underline' },
-=======
-  submitButtonText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' }
->>>>>>> IT24103379
 });

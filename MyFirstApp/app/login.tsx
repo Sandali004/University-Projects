@@ -31,7 +31,7 @@ export default function LoginScreen() {
         return;
       }
       router.replace({
-        pathname: '/(dashboard)',
+        pathname: '/(dashboard)/home',
         params: { role: 'Driver', driverId: result.driver?.id },
       });
     } catch (error: any) {

@@ -31,7 +31,7 @@ export default function AttendantLoginScreen() {
         return;
       }
       router.replace({
-        pathname: '/(dashboard)',
+        pathname: '/(dashboard)/home' as any,
         params: { role: 'Attendant', attendantId: result.attendant?.id },
       });
     } catch (error: any) {

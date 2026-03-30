@@ -9,7 +9,10 @@ import {
   getParentSystem,
   updateSystemRoute,
   startTrackingNotify,
-  stopTrackingNotify
+  stopTrackingNotify,
+  joinSystemAttendant,
+  getAttendantSystem,
+  updateAttendantPresence
 } from "../controllers/systemController.js";
 
 const router = express.Router();
@@ -29,5 +32,10 @@ router.post("/:systemId/tracking/stop", stopTrackingNotify);
 // Parent routes
 router.post("/join", joinSystem);
 router.get("/parent/:parentId", getParentSystem);
+
+// Attendant routes
+router.post("/join-attendant", joinSystemAttendant);
+router.get("/attendant/:attendantId", getAttendantSystem);
+router.put("/attendant/:attendantId/presence", updateAttendantPresence);
 
 export default router;

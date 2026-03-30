@@ -31,7 +31,7 @@ export default function ParentLoginScreen() {
         return;
       }
       router.replace({
-        pathname: '/(dashboard)',
+        pathname: '/(dashboard)/home' as any,
         params: { role: 'Parent', parentId: result.parent?.id },
       });
     } catch (error: any) {

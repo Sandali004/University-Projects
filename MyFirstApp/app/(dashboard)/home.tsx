@@ -15,7 +15,7 @@ const PARENT_HERO = require('../../assets/images/parent_hero.png');
 const DRiver_CARD_IMG = require('../../assets/images/driver_card.png');
 const PARENT_CARD_IMG = require('../../assets/images/parent_card.png');
 
-export default function DashboardScreen() {
+export default function DashboardHomeScreen() {
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
   const [role, setRole] = useState<'Driver' | 'Parent' | 'Attendant'>('Driver');
@@ -63,19 +63,25 @@ export default function DashboardScreen() {
   const handleLogout = async () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => {
+      { 
+        text: 'Logout', 
+        style: 'destructive', 
+        onPress: async () => {
           try {
-            await AsyncStorage.removeItem('driverToken');
-            await AsyncStorage.removeItem('driverData');
-            await AsyncStorage.removeItem('parentToken');
-            await AsyncStorage.removeItem('parentData');
-            await AsyncStorage.removeItem('attendantToken');
-            await AsyncStorage.removeItem('attendantData');
-            router.replace('/');
+            console.log('Starting logout process...');
+            const keys = ['driverToken', 'driverData', 'parentToken', 'parentData', 'attendantToken', 'attendantData'];
+            await AsyncStorage.multiRemove(keys);
+            
+            // Navigate to root index explicitly
+            // Now that this file is 'home.tsx', there is no ambiguity with '/' pointing to the dashboard
+            console.log('Navigating to welcome screen...');
+            router.replace('/' as any);
           } catch (error) {
-            router.replace('/');
+            console.error('Logout error:', error);
+            router.replace('/' as any);
           }
-      }}
+        }
+      }
     ]);
   };
 
@@ -148,7 +154,7 @@ export default function DashboardScreen() {
         grade: student.grade || '',
         pickupLocation: student.pickup_location || '',
         dropoffLocation: student.dropoff_location || '',
-        joinCode: student.join_code || '' // Assuming we might want to store it or allow editing
+        joinCode: student.join_code || '' 
       });
     } else {
       setEditingStudent(null);
@@ -158,7 +164,7 @@ export default function DashboardScreen() {
   };
 
   const renderStudentCard = ({ item }: { item: any }) => (
-    <View style={styles.studentCard}>
+    <View key={item.id} style={styles.studentCard}>
       <View style={styles.studentInfo}>
         <View style={styles.studentHeader}>
           <Ionicons name="person-circle" size={40} color="#3B82F6" />
@@ -201,7 +207,7 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      <ScrollView stickyHeaderIndices={[1]} showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false}>
         
         {/* Responsive Banner Section */}
         <View style={styles.bannerWrapper}>
@@ -292,14 +298,7 @@ export default function DashboardScreen() {
                   <Text style={styles.actionLabel}>Pickup Status</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.smallActionCard} onPress={() => Alert.alert('Driver Info', 'No active driver currently assigned to your route.')}>
-                  <View style={[styles.actionIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                    <Ionicons name="bus" size={24} color="#D97706" />
-                  </View>
-                  <Text style={styles.actionLabel}>Driver Details</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.smallActionCard} onPress={() => Alert.alert('Inbox', 'No new notifications right now.')}>
+                <TouchableOpacity style={styles.smallActionCard} onPress={() => router.push('/notifications')}>
                   <View style={[styles.actionIconCircle, { backgroundColor: '#FEE2E2' }]}>
                     <Ionicons name="notifications" size={24} color="#DC2626" />
                   </View>
@@ -390,11 +389,11 @@ const styles = StyleSheet.create({
   userNameText: { color: '#1E293B', fontSize: 24, fontWeight: '900', marginBottom: 6 },
   roleLabel: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 100, gap: 6 },
   roleLabelText: { fontSize: 11, color: '#1D4ED8', fontWeight: '800', textTransform: 'uppercase' },
-  headerLogoutBtn: { padding: 10, backgroundColor: '#F8FAFC', borderRadius: 14 },
+  headerLogoutBtn: { padding: 12, backgroundColor: '#F8FAFC', borderRadius: 14, zIndex: 100, elevation: 20 },
 
   // Grid Actions
   actionGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 30 },
-  smallActionCard: { width: '23%', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 15, borderRadius: 20, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 },
+  smallActionCard: { width: '31%', alignItems: 'center', backgroundColor: '#fff', paddingVertical: 15, borderRadius: 20, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 5, elevation: 2 },
   actionIconCircle: { width: 45, height: 45, borderRadius: 22.5, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
   actionLabel: { fontSize: 9, fontWeight: '800', color: '#64748B', textAlign: 'center' },
 

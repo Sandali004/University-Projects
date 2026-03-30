@@ -29,7 +29,16 @@ async function loginHelper(endpoint, email, password, tokenKey, dataKey) {
     return { success: true, user, message };
   } catch (error) {
     console.error(`[loginService] Error calling ${endpoint}:`, error.response?.data || error.message);
-    const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
+    
+    let message;
+    if (error.response?.data?.message) {
+      message = error.response.data.message;
+    } else if (!error.response) {
+      message = 'Network error. Unable to connect to server.';
+    } else {
+      message = 'Login failed. Please check your credentials.';
+    }
+    
     return { success: false, message };
   }
 }

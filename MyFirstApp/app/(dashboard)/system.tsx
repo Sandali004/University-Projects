@@ -88,7 +88,7 @@ export default function SystemScreen() {
         }
       }
     } catch (error) {
-      console.log('Error fetching system details');
+      console.log('Error fetching system details:', error);
     }
   };
 

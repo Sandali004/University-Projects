@@ -242,12 +242,7 @@ export default function DashboardHomeScreen() {
                 <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569' }]}>Join System</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.gridItem} onPress={() => router.push('/notifications' as any)}>
-                <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
-                  <MaterialCommunityIcons name="bell-outline" size={28} color="#EF4444" />
-                </View>
-                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569' }]}>Notices</Text>
-              </TouchableOpacity>
+
 
               <TouchableOpacity style={styles.gridItem} onPress={() => Alert.alert('Pickup Status', 'Live updates available in specific system views.')}>
                 <View style={[styles.iconBox, { backgroundColor: '#FEF3C7' }]}>

@@ -75,35 +75,47 @@ export const getSystemById = async (req, res) => {
   try {
     const { systemId } = req.params;
 
+    // 1. Fetch main system info with route join
+    // Using explicit FK naming routes:route_id if generic routes(name) fails
     const { data, error } = await supabase
       .from('transportation_systems')
-      .select('*, routes(name)')
+      .select('*, routes:route_id(name)')
       .eq('id', systemId)
       .single();
 
     if (error) {
+      console.error(`[getSystemById] Fetch Error (System ${systemId}):`, error.message);
       if (error.code === 'PGRST116') return res.status(404).json({ message: "System not found." });
       throw error;
     }
 
-    // Fetch attendant for this system
-    const { data: attendantData } = await supabase
-      .from('system_attendants')
-      .select('is_present, users(name, email)')
-      .eq('system_id', data.id)
-      .single();
-      
-    if (attendantData) {
-      data.attendant = {
-        name: attendantData.users.name,
-        email: attendantData.users.email,
-        is_present: attendantData.is_present
-      };
+    if (!data) {
+      return res.status(404).json({ message: "No data found for system ID." });
+    }
+
+    // 2. Safely Fetch attendant if exists
+    try {
+      const { data: attendantData, error: aError } = await supabase
+        .from('system_attendants')
+        .select('is_present, users:attendant_id(name, email)')
+        .eq('system_id', data.id)
+        .single();
+        
+      if (!aError && attendantData && attendantData.users) {
+        data.attendant = {
+          name: attendantData.users.name,
+          email: attendantData.users.email,
+          is_present: attendantData.is_present
+        };
+      }
+    } catch (attError) {
+      console.warn("[getSystemById] Attendant fetch skipped or failed:", attError.message);
     }
 
     res.status(200).json({ system: data });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching system details", error: error.message });
+    console.error("[getSystemById] Internal Error:", error);
+    res.status(500).json({ message: "Internal server error fetching details", error: error.message });
   }
 };
 
@@ -260,7 +272,7 @@ export const getParentSystems = async (req, res) => {
     const { parentId } = req.params;
     const { data, error } = await supabase
       .from('system_parents')
-      .select('system_id, transportation_systems(*, routes(name))')
+      .select('system_id, transportation_systems(*, routes:route_id(name))')
       .eq('parent_id', parentId);
 
     if (error) throw error;

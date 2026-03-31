@@ -75,47 +75,59 @@ export const getSystemById = async (req, res) => {
   try {
     const { systemId } = req.params;
 
-    // 1. Fetch main system info with route join
-    // Using explicit FK naming routes:route_id if generic routes(name) fails
-    const { data, error } = await supabase
+    // 1. Fetch main system info (Case-insensitive table check)
+    const { data: system, error: sError } = await supabase
       .from('transportation_systems')
-      .select('*, routes:route_id(name)')
+      .select('*')
       .eq('id', systemId)
       .single();
 
-    if (error) {
-      console.error(`[getSystemById] Fetch Error (System ${systemId}):`, error.message);
-      if (error.code === 'PGRST116') return res.status(404).json({ message: "System not found." });
-      throw error;
+    if (sError || !system) {
+      console.error(`[getSystemById] Fetch Error:`, sError?.message);
+      return res.status(404).json({ message: "System not found." });
     }
 
-    if (!data) {
-      return res.status(404).json({ message: "No data found for system ID." });
+    // 2. Fetch route info separately
+    if (system.route_id) {
+      const { data: routeData } = await supabase
+        .from('routes')
+        .select('name')
+        .eq('id', system.route_id)
+        .single();
+      if (routeData) system.routes = routeData;
     }
 
-    // 2. Safely Fetch attendant if exists
+    // 3. Safely Fetch attendant if exists
     try {
-      const { data: attendantData, error: aError } = await supabase
+      const { data: attEntry } = await supabase
         .from('system_attendants')
-        .select('is_present, users:attendant_id(name, email)')
-        .eq('system_id', data.id)
+        .select('is_present, attendant_id')
+        .eq('system_id', system.id)
         .single();
         
-      if (!aError && attendantData && attendantData.users) {
-        data.attendant = {
-          name: attendantData.users.name,
-          email: attendantData.users.email,
-          is_present: attendantData.is_present
-        };
+      if (attEntry) {
+        const { data: userData } = await supabase
+          .from('users')
+          .select('name, email')
+          .eq('id', attEntry.attendant_id)
+          .single();
+          
+        if (userData) {
+          system.attendant = {
+            name: userData.name,
+            email: userData.email,
+            is_present: attEntry.is_present
+          };
+        }
       }
     } catch (attError) {
-      console.warn("[getSystemById] Attendant fetch skipped or failed:", attError.message);
+      console.warn("[getSystemById] Attendant fetch skipped:", attError.message);
     }
 
-    res.status(200).json({ system: data });
+    res.status(200).json({ system });
   } catch (error) {
     console.error("[getSystemById] Internal Error:", error);
-    res.status(500).json({ message: "Internal server error fetching details", error: error.message });
+    res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 

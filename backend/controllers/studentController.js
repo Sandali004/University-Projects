@@ -128,7 +128,6 @@ export const deleteStudent = async (req, res) => {
   }
 };
 
-// Get all students for a specific system
 export const getStudentsBySystem = async (req, res) => {
   try {
     const { systemId } = req.params;
@@ -137,14 +136,28 @@ export const getStudentsBySystem = async (req, res) => {
       return res.status(400).json({ message: "System ID is required." });
     }
 
-    const { data, error } = await supabase
+    // 1. Fetch students
+    const { data: students, error } = await supabase
       .from('students')
-      .select('*, users!parent_id(name, email)') // Join with parent
+      .select('*')
       .eq('system_id', systemId);
 
     if (error) throw error;
 
-    res.status(200).json({ students: data || [] });
+    // 2. Map parent names if possible (optional enhancement)
+    const enrichedStudents = await Promise.all((students || []).map(async (s) => {
+      if (s.parent_id) {
+        const { data: parent } = await supabase
+          .from('users')
+          .select('name')
+          .eq('id', s.parent_id)
+          .single();
+        return { ...s, parent_name: parent?.name || 'Unknown' };
+      }
+      return s;
+    }));
+
+    res.status(200).json({ students: enrichedStudents });
   } catch (error) {
     console.error("[getStudentsBySystem] Error:", error);
     res.status(500).json({ message: "Error fetching system students", error: error.message });

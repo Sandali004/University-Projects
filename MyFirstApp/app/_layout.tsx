@@ -48,15 +48,7 @@ export default function RootLayout() {
         }} 
       />
       
-      {/* Simple Map Screen */}
-      <Stack.Screen 
-        name="map" 
-        options={{ 
-          title: 'Vehicle Tracker',
-          headerStyle: { backgroundColor: '#3B82F6' }, // Blue header for Map
-          headerTintColor: '#fff',
-        }} 
-      />
+
       
       {/* Registration Selection Screen */}
       <Stack.Screen 
@@ -102,7 +94,10 @@ export default function RootLayout() {
       {/* Dashboard Screens Layout */}
       <Stack.Screen 
         name="(dashboard)" 
-        options={{ headerShown: false }} 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false
+        }} 
       />
     </Stack>
   );

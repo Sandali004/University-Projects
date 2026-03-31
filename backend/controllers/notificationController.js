@@ -20,10 +20,10 @@ export const getNotifications = async (req, res) => {
       // We don't fail the request if cleanup fails, just log it.
     }
 
-    // 2. Fetch the remaining notifications for the user
+    // 2. Fetch the remaining notifications for the user with system name join
     const { data: notifications, error: fetchError } = await supabase
       .from('notifications')
-      .select('*')
+      .select('*, transportation_systems(name)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 

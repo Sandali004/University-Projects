@@ -78,11 +78,11 @@ export default function DashboardLayout() {
         }}
       />
 
-      {/* Live Map tab — hidden for everyone, only accessible via System view */}
+      {/* Live Map tab — visible only for Parents (to set pickup) and Driver/Attendant (for tracking) */}
       <Tabs.Screen
         name="map"
         options={{
-          href: null,
+          href: (role === 'Parent' || role === 'Driver' || role === 'Attendant') ? undefined : null,
           title: 'Live Map',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
@@ -107,33 +107,17 @@ export default function DashboardLayout() {
       <Tabs.Screen
         name="notifications"
         options={{
-          href: null,
+          href: role === 'Parent' ? undefined : null,
           title: 'Notifications',
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="bell-outline" size={size} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          href: null,
-          title: 'My Profile',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="children"
-        options={{
-          href: null,
-          title: 'My Children',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-group" size={size} color={color} />
-          ),
-        }}
-      />
+
+      {/* Hidden Utility Routes */}
+      <Tabs.Screen name="profile" options={{ href: null }} />
+      <Tabs.Screen name="children" options={{ href: null }} />
     </Tabs>
 
     <Modal

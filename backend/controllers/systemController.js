@@ -216,6 +216,7 @@ export const joinSystemAttendant = async (req, res) => {
     if (!pError && parents && parents.length > 0) {
       const notifications = parents.map(p => ({
         user_id: p.parent_id,
+        system_id: system.id, // Added system_id
         message: `${attendantName} has joined the system "${system.name}" and is present.`,
         type: 'attendant_presence'
       }));
@@ -384,6 +385,7 @@ export const updateAttendantPresence = async (req, res) => {
     if (parents && parents.length > 0) {
       const notifications = parents.map(p => ({
         user_id: p.parent_id,
+        system_id: systemId, // Added system_id
         message: `${attendantName} is now ${isPresent ? 'PRESENT' : 'NOT PRESENT'} in the vehicle.`,
         type: 'attendant_presence'
       }));
@@ -444,6 +446,7 @@ export const startTrackingNotify = async (req, res) => {
     if (parents && parents.length > 0) {
       const notifications = parents.map(p => ({
         user_id: p.parent_id,
+        system_id: systemId, // Added system_id
         message: `${driverName || 'The driver'} has started live location sharing.`,
         type: 'tracking_start'
       }));
@@ -479,6 +482,7 @@ export const stopTrackingNotify = async (req, res) => {
     if (parents && parents.length > 0) {
       const notifications = parents.map(p => ({
         user_id: p.parent_id,
+        system_id: systemId, // Added system_id
         message: "Driver has stopped live location sharing.",
         type: 'tracking_stop'
       }));

@@ -102,7 +102,10 @@ export default function RootLayout() {
       {/* Dashboard Screens Layout */}
       <Stack.Screen 
         name="(dashboard)" 
-        options={{ headerShown: false }} 
+        options={{ 
+          headerShown: false,
+          gestureEnabled: false
+        }} 
       />
     </Stack>
   );

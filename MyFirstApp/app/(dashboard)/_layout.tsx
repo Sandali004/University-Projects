@@ -56,7 +56,13 @@ export default function DashboardLayout() {
           ),
         }}
       >
-        <Stack.Screen name="home" options={{ title: 'Dashboard', headerLeft: () => null }} />
+        <Stack.Screen 
+          name="home" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false 
+          }} 
+        />
         <Stack.Screen name="system" options={{ title: 'System Details' }} />
         <Stack.Screen name="map" options={{ title: 'Live Tracking' }} />
         <Stack.Screen name="notifications" options={{ title: 'Notices' }} />

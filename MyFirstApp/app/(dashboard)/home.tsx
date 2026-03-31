@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+import MenuPanel from '../../components/MenuPanel';
 
 const BANNER_IMAGE = require('../../assets/images/bus_banner.png');
 const PARENT_HERO = require('../../assets/images/parent_hero.png');
@@ -16,6 +17,7 @@ export default function DashboardHomeScreen() {
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
   const [role, setRole] = useState<'Driver' | 'Parent' | 'Attendant' | 'loading'>('loading');
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const [systems, setSystems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -218,9 +220,17 @@ export default function DashboardHomeScreen() {
                 <Text style={styles.roleLabelText}>{role}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.headerLogoutBtn} onPress={handleLogout}>
-              <Ionicons name="log-out" size={24} color="#94A3B8" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity 
+                style={[styles.headerLogoutBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.1)' : '#F1F5F9' }]} 
+                onPress={() => setIsMenuVisible(true)}
+              >
+                <Ionicons name="menu" size={24} color={accentColor} />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.headerLogoutBtn} onPress={handleLogout}>
+                <Ionicons name="log-out" size={24} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -294,6 +304,18 @@ export default function DashboardHomeScreen() {
           )}
         </View>
       </ScrollView>
+
+      <MenuPanel 
+        isVisible={isMenuVisible} 
+        onClose={() => setIsMenuVisible(false)} 
+        role={role === ('loading' as any) ? 'Parent' : role}
+        userName={userName}
+        theme={isDark ? 'dark' : 'light'}
+        onThemeChange={async (newTheme) => {
+          setTheme(newTheme);
+          await AsyncStorage.setItem('appTheme', newTheme);
+        }}
+      />
 
       {/* Join Modal */}
       <Modal visible={isJoinModalVisible} transparent animationType="slide">

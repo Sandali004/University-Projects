@@ -3,14 +3,14 @@ import { supabase } from "../utils/supabase.js";
 // Add a new student
 export const addStudent = async (req, res) => {
   try {
-    const { parentId, name, school, grade, pickupLocation, dropoffLocation, joinCode } = req.body;
+    const { parentId, name, school, grade, pickupLocation, dropoffLocation, joinCode, systemId } = req.body;
 
     if (!parentId || !name || !school) {
       return res.status(400).json({ message: "Parent ID, Name, and School are required." });
     }
 
-    let resolvedSystemId = null;
-    if (joinCode) {
+    let resolvedSystemId = systemId || null;
+    if (joinCode && !resolvedSystemId) {
       const { data: systemData, error: systemError } = await supabase
         .from('transportation_systems')
         .select('id')
@@ -68,9 +68,9 @@ export const getStudentsByParent = async (req, res) => {
 export const updateStudent = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, school, grade, pickupLocation, dropoffLocation, joinCode } = req.body;
+    const { name, school, grade, pickupLocation, dropoffLocation, joinCode, systemId } = req.body;
 
-    let resolvedSystemId = undefined;
+    let resolvedSystemId = systemId || undefined;
     if (joinCode) {
       const { data: systemData, error: systemError } = await supabase
         .from('transportation_systems')
@@ -125,5 +125,28 @@ export const deleteStudent = async (req, res) => {
     res.status(200).json({ message: "Student deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: "Error deleting student", error: error.message });
+  }
+};
+
+// Get all students for a specific system
+export const getStudentsBySystem = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+
+    if (!systemId) {
+      return res.status(400).json({ message: "System ID is required." });
+    }
+
+    const { data, error } = await supabase
+      .from('students')
+      .select('*, users!parent_id(name, email)') // Join with parent
+      .eq('system_id', systemId);
+
+    if (error) throw error;
+
+    res.status(200).json({ students: data || [] });
+  } catch (error) {
+    console.error("[getStudentsBySystem] Error:", error);
+    res.status(500).json({ message: "Error fetching system students", error: error.message });
   }
 };

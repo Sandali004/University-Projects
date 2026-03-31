@@ -72,6 +72,7 @@ export default function NotificationsScreen() {
     if (type === 'route_change') return 'map-marker-path';
     if (type === 'start') return 'map-marker-radius';
     if (type === 'stop') return 'map-marker-off';
+    if (type === 'attendant_presence') return 'account-check';
     return 'bell'; // fallback
   };
 
@@ -81,6 +82,7 @@ export default function NotificationsScreen() {
     if (type === 'route_change') return '#4F46E5';
     if (type === 'start') return '#10B981';
     if (type === 'stop') return '#64748B';
+    if (type === 'attendant_presence') return '#8B5CF6'; // Purple
     return '#3B82F6'; // fallback
   };
 

@@ -19,6 +19,7 @@ export default function DashboardHomeScreen() {
   const [userName, setUserName] = useState('');
   const [userId, setUserId] = useState('');
   const [role, setRole] = useState<'Driver' | 'Parent' | 'Attendant'>('Driver');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
   const router = useRouter();
 
   // Parent specific state
@@ -34,6 +35,10 @@ export default function DashboardHomeScreen() {
 
   const loadUserData = async () => {
     try {
+      const savedTheme = await AsyncStorage.getItem('appTheme');
+      if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
+      else setTheme('dark'); // Default to dark as requested
+
       const driverDataStr = await AsyncStorage.getItem('driverData');
       const parentDataStr = await AsyncStorage.getItem('parentData');
       const attendantDataStr = await AsyncStorage.getItem('attendantData');
@@ -203,10 +208,15 @@ export default function DashboardHomeScreen() {
   );
 
   const isParent = role === 'Parent';
+  const isDark = theme === 'dark';
+  const bgColor = isDark ? '#0F172A' : '#F8FAFC';
+  const cardColor = isDark ? '#1E293B' : '#FFFFFF';
+  const textColor = isDark ? '#F1F5F9' : '#1E293B';
+  const subTextColor = isDark ? '#94A3B8' : '#64748B';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: bgColor }]}>
+      <StatusBar barStyle={isDark ? "light-content" : "dark-content"} backgroundColor={bgColor} />
       <ScrollView showsVerticalScrollIndicator={false}>
         
         {/* Responsive Banner Section */}
@@ -224,10 +234,10 @@ export default function DashboardHomeScreen() {
 
         {/* Floating Greeting Card */}
         <View style={styles.topCardWrapper}>
-          <View style={styles.headerCard}>
+          <View style={[styles.headerCard, { backgroundColor: cardColor }]}>
             <View style={styles.headerInfo}>
-              <Text style={styles.welcomeText}>Hello,</Text>
-              <Text style={styles.userNameText}>{userName || 'Parent'}</Text>
+              <Text style={[styles.welcomeText, { color: subTextColor }]}>Hello,</Text>
+              <Text style={[styles.userNameText, { color: textColor }]}>{userName || 'Parent'}</Text>
               <View style={[styles.roleLabel, { backgroundColor: isParent ? '#E1EFFE' : '#EBF5FF' }]}>
                 <Ionicons name={isParent ? "people" : "bus"} size={14} color="#1D4ED8" />
                 <Text style={styles.roleLabelText}>{role}</Text>

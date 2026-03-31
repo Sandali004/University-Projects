@@ -10,6 +10,7 @@ import locationRoutes  from "./Routes/locationRoutes.js";
 import systemRoutes    from "./Routes/systemRoutes.js";
 import studentRoutes   from "./Routes/studentRoutes.js";
 import notificationRoutes from "./Routes/notificationRoutes.js";
+import profileRoutes      from "./Routes/profileRoutes.js";
 
 // Initialize Express app
 
@@ -34,6 +35,7 @@ app.use("/api/location",  locationRoutes);
 app.use("/api/system",    systemRoutes);
 app.use("/api/students",  studentRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/profile",       profileRoutes);
 
 
 const PREFERRED_PORT = parseInt(process.env.PORT || "5000", 10);

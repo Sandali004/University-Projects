@@ -151,3 +151,4 @@ const styles = StyleSheet.create({
   registrationBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8, paddingHorizontal: 15 },
   registrationText: { color: '#3B82F6', fontWeight: '800', fontSize: 16 },
 });
+

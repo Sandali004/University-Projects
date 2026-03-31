@@ -19,6 +19,9 @@ export default function SystemScreen() {
   const [loading, setLoading] = useState(true);
   const [parents, setParents] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
+  const [allMyChildren, setAllMyChildren] = useState<any[]>([]);
+  const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
+  const [isAddChildModalVisible, setIsAddChildModalVisible] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
   // Tracking state (for Parent)
@@ -105,6 +108,39 @@ export default function SystemScreen() {
     } catch (error) {
       console.log('Error fetching parents');
     }
+  };
+
+  const fetchAllMyChildren = async (pId: string) => {
+    try {
+      const response = await api.get(`/students/parent/${pId}`);
+      setAllMyChildren(response.data.students || []);
+    } catch (error) {
+      console.log('Error fetching my children');
+    }
+  };
+
+  const handleLinkChildren = async () => {
+    if (selectedChildren.length === 0) return;
+    try {
+      setLoading(true);
+      for (const childId of selectedChildren) {
+        await api.put(`/students/${childId}`, { systemId });
+      }
+      Alert.alert('Success', 'Children successfully added to the system!');
+      setIsAddChildModalVisible(false);
+      setSelectedChildren([]);
+      fetchSystemStudents(systemId as string);
+    } catch (error) {
+      Alert.alert('Error', 'Could not link children to system');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleChildSelection = (id: string) => {
+    setSelectedChildren(prev => 
+      prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]
+    );
   };
 
   const startTracking = (driverId: string) => {
@@ -288,6 +324,15 @@ export default function SystemScreen() {
             Students {isParent && ' (My Children)'}
           </Text>
           <View style={styles.countBadge}><Text style={styles.countText}>{students.length}</Text></View>
+          {isParent && (
+            <TouchableOpacity 
+              style={[styles.addInlineBtn, { borderColor: accentColor }]}
+              onPress={() => { fetchAllMyChildren(userId); setIsAddChildModalVisible(true); }}
+            >
+              <Ionicons name="add-circle" size={20} color={accentColor} />
+              <Text style={[styles.addInlineText, { color: accentColor }]}>Add Child</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {students.length > 0 ? (
@@ -322,6 +367,65 @@ export default function SystemScreen() {
         )}
 
       </ScrollView>
+
+      {/* MULTI-CHILD SELECTION MODAL */}
+      <Modal visible={isAddChildModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
+            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Select Children to Add</Text>
+            <Text style={styles.modalSub}>Link your registered children to this system.</Text>
+            
+            <View style={styles.selectionList}>
+              {allMyChildren.length > 0 ? (
+                allMyChildren.map(child => {
+                  const isSelected = selectedChildren.includes(child.id);
+                  const isAlreadyInSystem = child.system_id === systemId;
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={child.id} 
+                      style={[styles.selectionItem, isSelected && styles.selectionItemSelected]}
+                      onPress={() => !isAlreadyInSystem && toggleChildSelection(child.id)}
+                      disabled={isAlreadyInSystem}
+                    >
+                      <View style={styles.selectionCheck}>
+                        <Ionicons 
+                          name={isAlreadyInSystem ? "checkmark-circle" : (isSelected ? "checkbox" : "square-outline")} 
+                          size={24} 
+                          color={isAlreadyInSystem ? "#94A3B8" : (isSelected ? accentColor : "#64748B")} 
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.selectionName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{child.name}</Text>
+                        <Text style={styles.selectionSub}>
+                          {isAlreadyInSystem ? "Already in this system" : (child.system_id ? "Currently in another system" : "Not linked to any system")}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <View style={styles.emptySelection}>
+                  <Text style={styles.emptyText}>No children found. Go to "My Children" to register them first.</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsAddChildModalVisible(false)}>
+                <Text style={styles.cancelLink}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.actionBtn, { backgroundColor: accentColor, opacity: selectedChildren.length > 0 ? 1 : 0.5 }]} 
+                disabled={selectedChildren.length === 0}
+                onPress={handleLinkChildren}
+              >
+                <Text style={styles.btnTextLong}>Add {selectedChildren.length} Child(ren)</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -372,5 +476,23 @@ const styles = StyleSheet.create({
   studentLoc: { fontSize: 11, color: '#64748B', marginTop: 1 },
   emptyText: { textAlign: 'center', color: '#94A3B8', marginTop: 10, fontStyle: 'italic' },
   mainActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 60, borderRadius: 20, marginTop: 20 },
-  mainActionBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  mainActionBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  addInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginLeft: 'auto' },
+  addInlineText: { fontSize: 13, fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  modalContent: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold' },
+  modalSub: { color: '#94A3B8', fontSize: 13, marginBottom: 20, marginTop: 4 },
+  selectionList: { marginBottom: 20 },
+  selectionItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, marginBottom: 8, borderWidth: 1, borderColor: 'transparent' },
+  selectionItemSelected: { backgroundColor: 'rgba(16, 185, 129, 0.05)', borderColor: 'rgba(16, 185, 129, 0.2)' },
+  selectionCheck: { marginRight: 15 },
+  selectionName: { fontSize: 16, fontWeight: 'bold' },
+  selectionSub: { fontSize: 12, color: '#94A3B8' },
+  modalButtons: { flexDirection: 'row', gap: 15, marginTop: 10, marginBottom: 30 },
+  cancelBtn: { flex: 1, height: 55, justifyContent: 'center', alignItems: 'center' },
+  cancelLink: { color: '#64748B', fontWeight: 'bold' },
+  actionBtn: { flex: 2, height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  btnTextLong: { color: '#fff', fontWeight: 'bold' },
+  emptySelection: { padding: 40, alignItems: 'center' }
 });

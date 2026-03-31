@@ -38,6 +38,7 @@ export default function DashboardHomeScreen() {
     try {
       const savedTheme = await AsyncStorage.getItem('appTheme');
       if (savedTheme) setTheme(savedTheme as 'light' | 'dark');
+      else setTheme('dark');
 
       const driverDataStr = await AsyncStorage.getItem('driverData');
       const parentDataStr = await AsyncStorage.getItem('parentData');
@@ -140,6 +141,16 @@ export default function DashboardHomeScreen() {
     }
   };
 
+  const handleLogout = async () => {
+    Alert.alert("Logout", "Are you sure you want to logout?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Logout", style: "destructive", onPress: async () => {
+        await AsyncStorage.multiRemove(['driverToken', 'parentToken', 'attendantToken', 'driverData', 'parentData', 'attendantData']);
+        router.replace('/');
+      }}
+    ]);
+  };
+
   const renderSystemItem = (item: any) => {
     const accentColor = role === 'Parent' ? '#10B981' : role === 'Attendant' ? '#8B5CF6' : '#3B82F6';
     return (
@@ -169,31 +180,48 @@ export default function DashboardHomeScreen() {
     );
   }
 
-  const accentColor = role === 'Parent' ? '#10B981' : role === 'Attendant' ? '#8B5CF6' : '#3B82F6';
   const isParent = role === 'Parent';
   const isDriver = role === 'Driver';
   const isAttendant = role === 'Attendant';
+  const isDark = theme === 'dark';
+  const accentColor = isParent ? '#10B981' : isAttendant ? '#8B5CF6' : '#3B82F6';
+  const bgColor = isDark ? '#0F172A' : '#F8FAFC';
+  const cardColor = isDark ? '#1E293B' : '#FFFFFF';
+  const textColor = isDark ? '#F1F5F9' : '#1E293B';
+  const subTextColor = isDark ? '#94A3B8' : '#64748B';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme === 'dark' ? '#0F172A' : '#f8fafc' }]}>
-      <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
+    <SafeAreaView style={[styles.container, { backgroundColor: bgColor }]}>
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={bgColor} />
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        {/* Banner */}
+        {/* Banner Section */}
         <View style={styles.banner}>
-          <Image source={isParent ? PARENT_HERO : BANNER_IMAGE} style={styles.bannerImg} />
+          <Image source={isParent ? PARENT_HERO : BANNER_IMAGE} style={styles.bannerImg} resizeMode="cover" />
           <View style={styles.bannerOverlay}>
             <Text style={styles.bannerTitle}>{role.toUpperCase()} PORTAL</Text>
             <Text style={styles.bannerText}>School Van Tracking System</Text>
           </View>
         </View>
 
-        {/* Header greeting */}
-        <View style={styles.header}>
-          <Text style={[styles.greeting, { color: theme === 'dark' ? '#94A3B8' : '#64748B' }]}>Welcome back,</Text>
-          <Text style={[styles.name, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{userName}</Text>
+        {/* Floating Greeting Card */}
+        <View style={styles.topCardWrapper}>
+          <View style={[styles.headerCard, { backgroundColor: cardColor }]}>
+            <View style={styles.headerInfo}>
+              <Text style={[styles.welcomeText, { color: subTextColor }]}>Hello,</Text>
+              <Text style={[styles.userNameText, { color: textColor }]}>{userName || 'User'}</Text>
+              <View style={[styles.roleLabel, { backgroundColor: isParent ? '#E1EFFE' : '#EBF5FF' }]}>
+                <Ionicons name={isParent ? "people" : "bus"} size={14} color="#1D4ED8" />
+                <Text style={styles.roleLabelText}>{role}</Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.headerLogoutBtn} onPress={handleLogout}>
+              <Ionicons name="log-out" size={24} color="#94A3B8" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Action Grid */}
@@ -204,28 +232,28 @@ export default function DashboardHomeScreen() {
                 <View style={[styles.iconBox, { backgroundColor: '#DCFCE7' }]}>
                   <MaterialCommunityIcons name="account-group" size={28} color="#10B981" />
                 </View>
-                <Text style={[styles.gridLabel, { color: theme === 'dark' ? '#CBD5E1' : '#475569' }]}>My Children</Text>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569' }]}>My Children</Text>
               </TouchableOpacity>
               
               <TouchableOpacity style={styles.gridItem} onPress={() => setIsJoinModalVisible(true)}>
                 <View style={[styles.iconBox, { backgroundColor: '#DBEAFE' }]}>
                   <MaterialCommunityIcons name="plus-circle" size={28} color="#3B82F6" />
                 </View>
-                <Text style={[styles.gridLabel, { color: theme === 'dark' ? '#CBD5E1' : '#475569' }]}>Join System</Text>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569' }]}>Join System</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.gridItem} onPress={() => router.push('/notifications' as any)}>
                 <View style={[styles.iconBox, { backgroundColor: '#FEE2E2' }]}>
                   <MaterialCommunityIcons name="bell-outline" size={28} color="#EF4444" />
                 </View>
-                <Text style={[styles.gridLabel, { color: theme === 'dark' ? '#CBD5E1' : '#475569' }]}>Notices</Text>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569' }]}>Notices</Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.gridItem} onPress={() => Alert.alert('Pickup Status', 'Live updates available in specific system views.')}>
                 <View style={[styles.iconBox, { backgroundColor: '#FEF3C7' }]}>
                   <MaterialCommunityIcons name="map-marker-check" size={28} color="#F59E0B" />
                 </View>
-                <Text style={[styles.gridLabel, { color: theme === 'dark' ? '#CBD5E1' : '#475569' }]}>Status</Text>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569' }]}>Status</Text>
               </TouchableOpacity>
             </>
           )}
@@ -235,7 +263,7 @@ export default function DashboardHomeScreen() {
               <View style={[styles.iconBox, { backgroundColor: '#DBEAFE', width: 60, height: 60 }]}>
                 <MaterialCommunityIcons name="plus-thick" size={32} color="#3B82F6" />
               </View>
-              <Text style={[styles.gridLabel, { color: theme === 'dark' ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Create System</Text>
+              <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Create System</Text>
             </TouchableOpacity>
           )}
 
@@ -244,14 +272,14 @@ export default function DashboardHomeScreen() {
               <View style={[styles.iconBox, { backgroundColor: '#F3E8FF', width: 60, height: 60 }]}>
                 <MaterialCommunityIcons name="van-passenger" size={32} color="#8B5CF6" />
               </View>
-              <Text style={[styles.gridLabel, { color: theme === 'dark' ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Join System</Text>
+              <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Join System</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Systems List */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+          <Text style={[styles.sectionTitle, { color: textColor }]}>
             {isDriver ? 'Managed Systems' : 'Joined Systems'}
           </Text>
           {loading ? (
@@ -270,12 +298,12 @@ export default function DashboardHomeScreen() {
       {/* Join Modal */}
       <Modal visible={isJoinModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
-            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Join Transportation System</Text>
+          <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
+            <Text style={[styles.modalTitle, { color: textColor }]}>Join Transportation System</Text>
             <Text style={styles.modalSub}>Enter the 6-character join code provided by your driver.</Text>
             <TextInput 
-              style={[styles.input, { backgroundColor: theme === 'dark' ? '#334155' : '#F8FAFC', color: theme === 'dark' ? '#fff' : '#000' }]}
-              placeholder="Join Code (e.g. ABCDEF)"
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              placeholder="Join Code"
               placeholderTextColor="#94A3B8"
               autoCapitalize="characters"
               value={joinCode}
@@ -296,36 +324,21 @@ export default function DashboardHomeScreen() {
       {/* Create Modal */}
       <Modal visible={isCreateModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <ScrollView style={[styles.modalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
-            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Create New System</Text>
+          <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
+            <Text style={[styles.modalTitle, { color: textColor }]}>Create New System</Text>
             <TextInput 
-              style={[styles.input, { backgroundColor: theme === 'dark' ? '#334155' : '#F8FAFC', color: theme === 'dark' ? '#fff' : '#000' }]}
-              placeholder="System Name (e.g. Morning Route)"
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              placeholder="System Name"
               placeholderTextColor="#94A3B8"
               value={systemForm.name}
               onChangeText={t => setSystemForm({...systemForm, name: t})}
             />
             <TextInput 
-              style={[styles.input, { backgroundColor: theme === 'dark' ? '#334155' : '#F8FAFC', color: theme === 'dark' ? '#fff' : '#000' }]}
-              placeholder="Vehicle Plate Number"
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              placeholder="Plate Number"
               placeholderTextColor="#94A3B8"
               value={systemForm.plateNumber}
               onChangeText={t => setSystemForm({...systemForm, plateNumber: t})}
-            />
-             <TextInput 
-              style={[styles.input, { backgroundColor: theme === 'dark' ? '#334155' : '#F8FAFC', color: theme === 'dark' ? '#fff' : '#000' }]}
-              placeholder="Vehicle Type (Van, Mini-Bus)"
-              placeholderTextColor="#94A3B8"
-              value={systemForm.vehicleType}
-              onChangeText={t => setSystemForm({...systemForm, vehicleType: t})}
-            />
-            <TextInput 
-              style={[styles.input, { backgroundColor: theme === 'dark' ? '#334155' : '#F8FAFC', color: theme === 'dark' ? '#fff' : '#000' }]}
-              placeholder="Max Seats"
-              placeholderTextColor="#94A3B8"
-              keyboardType="numeric"
-              value={systemForm.maxSeats}
-              onChangeText={t => setSystemForm({...systemForm, maxSeats: t})}
             />
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsCreateModalVisible(false)}>
@@ -335,7 +348,7 @@ export default function DashboardHomeScreen() {
                 <Text style={styles.actionText}>Create Now</Text>
               </TouchableOpacity>
             </View>
-          </ScrollView>
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -344,38 +357,28 @@ export default function DashboardHomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  safeArea: { flex: 1 },
   scrollContent: { paddingBottom: 40 },
   banner: { height: 200, position: 'relative' },
   bannerImg: { width: '100%', height: '100%' },
   bannerOverlay: { position: 'absolute', bottom: 20, left: 20 },
   bannerTitle: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
   bannerText: { color: '#fff', fontSize: 14, opacity: 0.8 },
-  header: { padding: 20, paddingTop: 10 },
-  greeting: { fontSize: 14, fontWeight: '600' },
-  name: { fontSize: 28, fontWeight: 'bold' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 15, gap: 10, justifyContent: 'center' },
-  gridItem: { 
-    width: '46%', 
-    aspectRatio: 1.1, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    gap: 8
-  },
-  iconBox: { width: 55, height: 55, borderRadius: 18, justifyContent: 'center', alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  topCardWrapper: { paddingHorizontal: 20, marginTop: -30, zIndex: 10 },
+  headerCard: { borderRadius: 20, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
+  headerInfo: { flex: 1 },
+  welcomeText: { fontSize: 14, fontWeight: '600' },
+  userNameText: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
+  roleLabel: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, gap: 6 },
+  roleLabelText: { fontSize: 12, fontWeight: 'bold', color: '#1D4ED8', textTransform: 'uppercase' },
+  headerLogoutBtn: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 15, gap: 10, justifyContent: 'center', marginTop: 10 },
+  gridItem: { width: '46%', aspectRatio: 1.1, backgroundColor: '#fff', borderRadius: 24, alignItems: 'center', justifyContent: 'center', gap: 8, elevation: 1, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 10 },
+  iconBox: { width: 55, height: 55, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   gridLabel: { fontSize: 14, fontWeight: '700' },
   section: { padding: 20 },
   sectionTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
-  systemCard: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    padding: 15, 
-    borderRadius: 20, 
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10
-  },
+  systemCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, marginBottom: 12, elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10 },
   systemIcon: { width: 50, height: 50, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
   systemInfo: { flex: 1, marginLeft: 15 },
   systemName: { fontSize: 16, fontWeight: 'bold' },

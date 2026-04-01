@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //
 // Example: http://172.28.6.12:5000/api
 // ─────────────────────────────────────────────────────────
-const API_URL = 'http://10.228.178.143:5000/api';
+const API_URL = 'http://172.20.10.2:5000/api';
 
 // Create the Axios HTTP client with the base URL
 const api = axios.create({

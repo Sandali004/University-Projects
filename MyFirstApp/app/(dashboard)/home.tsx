@@ -301,6 +301,7 @@ export default function DashboardHomeScreen() {
                 </View>
                 <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Create System</Text>
               </TouchableOpacity>
+
               <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => router.push('/vehicles' as any)}>
                 <View style={[styles.iconBox, { backgroundColor: '#F0F9FF', width: 60, height: 60 }]}>
                   <MaterialCommunityIcons name="bus-school" size={32} color="#0EA5E9" />

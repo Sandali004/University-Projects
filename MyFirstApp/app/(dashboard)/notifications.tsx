@@ -32,10 +32,22 @@ export default function NotificationsScreen() {
   const loadUserAndFetch = async () => {
     try {
       const parentDataStr = await AsyncStorage.getItem('parentData');
+      const driverDataStr = await AsyncStorage.getItem('driverData');
+      const attendantDataStr = await AsyncStorage.getItem('attendantData');
+
+      let currentId = null;
+
       if (parentDataStr) {
-        const data = JSON.parse(parentDataStr);
-        setUserId(data.id);
-        fetchNotifications(data.id);
+        currentId = JSON.parse(parentDataStr).id;
+      } else if (driverDataStr) {
+        currentId = JSON.parse(driverDataStr).id;
+      } else if (attendantDataStr) {
+        currentId = JSON.parse(attendantDataStr).id;
+      }
+
+      if (currentId) {
+        setUserId(currentId);
+        fetchNotifications(currentId);
       } else {
         setLoading(false);
       }
@@ -109,6 +121,13 @@ export default function NotificationsScreen() {
       case 'tracking_start': return 'map-marker-radius';
       case 'tracking_stop': return 'map-marker-off';
       case 'attendant_presence': return 'account-check';
+      case 'parent_joined': return 'account-plus';
+      case 'parent_left': return 'account-minus';
+      case 'parent_removed': return 'account-remove';
+      case 'student_added': return 'baby-face-outline';
+      case 'student_removed': return 'account-off-outline';
+      case 'attendant_joined': return 'account-tie-voice';
+      case 'control_update': return 'shield-key-outline';
       default: return 'bell';
     }
   };
@@ -121,6 +140,13 @@ export default function NotificationsScreen() {
       case 'tracking_start': return '#10B981';
       case 'tracking_stop': return '#64748B';
       case 'attendant_presence': return '#8B5CF6';
+      case 'parent_joined': return '#10B981';
+      case 'parent_left': return '#F59E0B';
+      case 'parent_removed': return '#EF4444';
+      case 'student_added': return '#3B82F6';
+      case 'student_removed': return '#EF4444';
+      case 'attendant_joined': return '#8B5CF6';
+      case 'control_update': return '#0EA5E9';
       default: return '#3B82F6';
     }
   };
@@ -159,7 +185,7 @@ export default function NotificationsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.mainTitle}>Notifications</Text>
-        <Text style={styles.subtitle}>Stay updated with your children's commute status.</Text>
+        <Text style={styles.subtitle}>Recent updates from your transportation systems.</Text>
       </View>
 
       {sections.length === 0 ? (

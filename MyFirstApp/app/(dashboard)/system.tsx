@@ -23,6 +23,10 @@ export default function SystemScreen() {
   const [selectedChildren, setSelectedChildren] = useState<string[]>([]);
   const [isAddChildModalVisible, setIsAddChildModalVisible] = useState(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+  const [selectedStudent, setSelectedStudent] = useState<any>(null);
+  const [isStudentModalVisible, setIsStudentModalVisible] = useState(false);
+  const [studentActivities, setStudentActivities] = useState<any[]>([]);
+  const [loadingActivities, setLoadingActivities] = useState(false);
 
   // Tracking state (for Parent)
   const [vanLocation, setVanLocation] = useState<any>(null);
@@ -119,12 +123,12 @@ export default function SystemScreen() {
     }
   };
 
-  const handleLinkChildren = async () => {
+  const handleLinkChildren = async (pRole?: string, pId?: string) => {
     if (selectedChildren.length === 0) return;
     try {
       setLoading(true);
       for (const childId of selectedChildren) {
-        await api.put(`/students/${childId}`, { systemId });
+        await api.put(`/students/${childId}`, { systemId, role: pRole || role, userId: pId || userId });
       }
       Alert.alert('Success', 'Children successfully added to the system!');
       setIsAddChildModalVisible(false);
@@ -135,6 +139,34 @@ export default function SystemScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRemoveParent = async (targetParentId: string) => {
+    const isSelf = targetParentId === userId;
+    Alert.alert(
+      isSelf ? "Leave System" : "Remove Parent",
+      `Are you sure you want to ${isSelf ? 'leave' : 'remove this parent from'} the system?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: isSelf ? "Leave" : "Remove", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await api.delete(`/system/${systemId}/parents/${targetParentId}?role=${role}&userId=${userId}`);
+              Alert.alert('Success', isSelf ? 'You have left the system' : 'Parent removed');
+              if (isSelf) router.replace('/home' as any);
+              else fetchSystemParents(systemId as string);
+            } catch (error) {
+              Alert.alert('Error', 'Could not complete the action');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const toggleChildSelection = (id: string) => {
@@ -174,6 +206,10 @@ export default function SystemScreen() {
   };
 
   const sendAlert = async (type: string, message: string) => {
+    if (isAttendant && !system.attendant?.has_control) {
+      Alert.alert('Access Denied', 'You do not have full control of the system. Please ask the driver.');
+      return;
+    }
     try {
       await api.post(`/driver/alert`, { 
         driverId: userId, 
@@ -195,6 +231,105 @@ export default function SystemScreen() {
       Alert.alert('Success', `Status updated to ${newStatus ? 'PRESENT' : 'NOT PRESENT'}`);
     } catch (error) {
       Alert.alert('Error', 'Failed to update presence');
+    }
+  };
+
+  const handleStudentClick = async (student: any) => {
+    setSelectedStudent(student);
+    setIsStudentModalVisible(true);
+    fetchStudentActivities(student.id);
+  };
+
+  const fetchStudentActivities = async (studentId: string) => {
+    try {
+      setLoadingActivities(true);
+      const response = await api.get(`/attendance/${studentId}`, {
+        params: { userId, role }
+      });
+      setStudentActivities(response.data.activities || []);
+    } catch (error) {
+      console.log('Error fetching activities');
+      setStudentActivities([]); // Clear on error
+    } finally {
+      setLoadingActivities(false);
+    }
+  };
+
+  const markAttendance = async (studentId: string, type: 'pickup' | 'dropoff') => {
+    if (isAttendant && !system.attendant?.has_control) {
+      Alert.alert('Access Denied', 'You do not have full control of the system. Please ask the driver.');
+      return;
+    }
+    try {
+      setLoading(true);
+      await api.post('/attendance/mark', { studentId, type, systemId });
+      Alert.alert('Success', `Student marked as ${type === 'pickup' ? 'Picked Up' : 'Dropped Off'}`);
+      fetchStudentActivities(studentId);
+    } catch (error) {
+      Alert.alert('Error', 'Could not mark attendance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeStudentFromSystem = async (studentId: string) => {
+    Alert.alert(
+      "Remove Student",
+      "Are you sure you want to remove this student from the system?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Remove", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setLoading(true);
+              await api.put(`/students/${studentId}`, { systemId: null, role, userId });
+              Alert.alert('Success', 'Student removed from system');
+              setIsStudentModalVisible(false);
+              fetchSystemStudents(systemId as string);
+            } catch (error) {
+              Alert.alert('Error', 'Could not remove student');
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const parentsWithoutStudents = parents.filter(p => 
+    !students.some(s => s.parent_id === p.parent_id)
+  );
+
+  const handleToggleControl = async () => {
+    if (!system.attendant) return;
+    try {
+      const newControlStatus = !system.attendant.has_control;
+      setLoading(true);
+      await api.put(`/system/attendant/${system.attendant.id}/control`, { hasControl: newControlStatus });
+      await fetchSystemDetails();
+      Alert.alert('Success', `Full Control ${newControlStatus ? 'Granted' : 'Revoked'}`);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Could not update control status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleActivityAccess = async () => {
+    if (!system.attendant) return;
+    try {
+      const newAccessStatus = !system.attendant.can_view_activities;
+      setLoading(true);
+      await api.put(`/system/attendant/${system.attendant.id}/activities-access`, { canViewActivities: newAccessStatus });
+      await fetchSystemDetails();
+      Alert.alert('Success', `Activity Access ${newAccessStatus ? 'Granted' : 'Revoked'}`);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Could not update activity access');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -250,12 +385,94 @@ export default function SystemScreen() {
             </View>
           )}
         </View>
+        
+        {/* ATTENDANT MANAGEMENT (Driver Only) */}
+        {isDriver && system.attendant && (
+          <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
+            <View style={styles.cardHeaderSmall}>
+              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B', marginBottom: 0 }]}>Attendant Status</Text>
+              <View style={[styles.presenceBadge, { backgroundColor: system.attendant.is_present ? '#DCFCE7' : '#FEE2E2' }]}>
+                <Text style={[styles.presenceText, { color: system.attendant.is_present ? '#166534' : '#991B1B' }]}>
+                  {system.attendant.is_present ? 'PRESENT' : 'NOT PRESENT'}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.attendantInfoRow}>
+              <View style={styles.attendantMain}>
+                <Text style={[styles.attendantNameLabel, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.attendant.name}</Text>
+                <Text style={styles.attendantEmailLabel}>{system.attendant.email}</Text>
+              </View>
+              <View style={styles.controlToggleContainer}>
+                <View style={styles.toggleRow}>
+                  <Text style={styles.toggleLabel}>Full Control</Text>
+                  <TouchableOpacity 
+                    onPress={handleToggleControl}
+                    disabled={!system.attendant.is_present}
+                    style={[
+                      styles.toggleSwitch, 
+                      { backgroundColor: system.attendant.has_control ? '#3B82F6' : '#94A3B8' },
+                      !system.attendant.is_present && { opacity: 0.5 }
+                    ]}
+                  >
+                    <View style={[styles.toggleThumb, { marginLeft: system.attendant.has_control ? 22 : 2 }]} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.toggleRow, { marginTop: 10 }]}>
+                  <Text style={styles.toggleLabel}>View Activities</Text>
+                  <TouchableOpacity 
+                    onPress={handleToggleActivityAccess}
+                    style={[
+                      styles.toggleSwitch, 
+                      { backgroundColor: system.attendant.can_view_activities ? '#8B5CF6' : '#94A3B8' }
+                    ]}
+                  >
+                    <View style={[styles.toggleThumb, { marginLeft: system.attendant.can_view_activities ? 22 : 2 }]} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+            {!system.attendant.is_present && (
+              <Text style={styles.presenceWarning}>Control can only be granted when attendant is present.</Text>
+            )}
+          </View>
+        )}
+
+        {/* ATTENDANT STATUS (Attendant Only) */}
+        {isAttendant && (
+          <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
+            <View style={styles.statusHeader}>
+              <MaterialCommunityIcons 
+                name={system.attendant?.has_control ? "shield-check" : "shield-alert"} 
+                size={24} 
+                color={system.attendant?.has_control ? "#3B82F6" : "#F59E0B"} 
+              />
+              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B', marginBottom: 0, marginLeft: 10 }]}>
+                System Access
+              </Text>
+            </View>
+            <View style={[styles.controlStatusBox, { backgroundColor: system.attendant?.has_control ? '#EFF6FF' : '#FFFBEB' }]}>
+              <Text style={[styles.controlStatusText, { color: system.attendant?.has_control ? '#1E40AF' : '#92400E' }]}>
+                {system.attendant?.has_control 
+                  ? "FULL CONTROL: You can mark attendance and send alerts." 
+                  : "READ-ONLY: Please wait for the driver to grant control."}
+              </Text>
+            </View>
+            <View style={[styles.controlStatusBox, { backgroundColor: system.attendant?.can_view_activities ? '#F5F3FF' : '#F9FAFB', marginTop: 8 }]}>
+              <Text style={[styles.controlStatusText, { color: system.attendant?.can_view_activities ? '#5B21B6' : '#4B5563' }]}>
+                {system.attendant?.can_view_activities 
+                  ? "ACTIVITY ACCESS: You can view student activity history." 
+                  : "NO ACTIVITY ACCESS: You cannot see student activity history."}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* QUICK ALERTS (Driver/Attendant Only) */}
         {(isDriver || isAttendant) && (
           <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
             <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Quick Alerts</Text>
-            <View style={styles.alertGrid}>
+            <View style={[styles.alertGrid, isAttendant && !system.attendant?.has_control && { opacity: 0.5 }]}>
               <TouchableOpacity style={[styles.alertBtn, { backgroundColor: '#FFF7ED' }]} onPress={() => sendAlert('Delay', 'System is delayed.')}>
                 <Ionicons name="time" size={24} color="#C2410C" />
                 <Text style={styles.alertBtnText}>Delay</Text>
@@ -337,22 +554,58 @@ export default function SystemScreen() {
 
         {students.length > 0 ? (
           students.map(s => (
-            <View key={s.id} style={[styles.studentCard, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
+            <TouchableOpacity 
+              key={s.id} 
+              style={[styles.studentCard, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}
+              onPress={() => handleStudentClick(s)}
+            >
               <View style={styles.studentInfo}>
                 <Text style={[styles.studentName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{s.name}</Text>
                 <Text style={styles.studentSub}>{s.school} • Grade {s.grade}</Text>
                 <Text style={styles.studentLoc}>P: {s.pickup_location || 'N/A'}</Text>
                 <Text style={styles.studentLoc}>D: {s.dropoff_location || 'N/A'}</Text>
               </View>
-              {isDriver && (
-                <TouchableOpacity onPress={() => Alert.alert('History', 'Student tracking history feature coming soon.')}>
-                  <Ionicons name="time-outline" size={22} color="#64748B" />
-                </TouchableOpacity>
-              )}
-            </View>
+              <Ionicons name="chevron-forward" size={20} color="#64748B" />
+            </TouchableOpacity>
           ))
         ) : (
           <Text style={styles.emptyText}>No students registered in this system.</Text>
+        )}
+
+        {/* PARENTS WITHOUT STUDENTS (Driver/Attendant Only) */}
+        {(isDriver || isAttendant) && parentsWithoutStudents.length > 0 && (
+          <View style={{ marginTop: 25 }}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Parents Pending Students</Text>
+              <View style={styles.countBadge}><Text style={styles.countText}>{parentsWithoutStudents.length}</Text></View>
+            </View>
+            {parentsWithoutStudents.map(p => (
+              <View key={p.parent_id} style={[styles.parentCard, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
+                <MaterialCommunityIcons name="account-alert" size={24} color="#F59E0B" />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.parentName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{p.users?.name}</Text>
+                  <Text style={styles.parentEmail}>{p.users?.email}</Text>
+                </View>
+                <TouchableOpacity 
+                   style={styles.removeParentBtnSmall} 
+                   onPress={() => handleRemoveParent(p.parent_id)}
+                >
+                  <Ionicons name="person-remove" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* LEAVE SYSTEM (Parent Only) */}
+        {isParent && (
+          <TouchableOpacity 
+            style={[styles.leaveBtn, { borderColor: '#EF4444' }]} 
+            onPress={() => handleRemoveParent(userId)}
+          >
+            <Ionicons name="exit-outline" size={20} color="#EF4444" />
+            <Text style={styles.leaveBtnText}>Leave This System</Text>
+          </TouchableOpacity>
         )}
 
         {/* Tracking Action (Driver Only) */}
@@ -367,6 +620,108 @@ export default function SystemScreen() {
         )}
 
       </ScrollView>
+
+      {/* STUDENT DETAILS MODAL */}
+      <Modal visible={isStudentModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.studentModalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Student Details</Text>
+              <TouchableOpacity onPress={() => setIsStudentModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={24} color={theme === 'dark' ? '#fff' : '#1E293B'} />
+              </TouchableOpacity>
+            </View>
+
+            {selectedStudent && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {/* Profile Header */}
+                <View style={styles.profileHeader}>
+                  <View style={[styles.profileAvatar, { backgroundColor: accentColor }]}>
+                    <Text style={styles.avatarText}>{selectedStudent.name.charAt(0)}</Text>
+                  </View>
+                  <Text style={[styles.detailName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{selectedStudent.name}</Text>
+                  <Text style={styles.detailSub}>{selectedStudent.school} • Grade {selectedStudent.grade}</Text>
+                </View>
+
+                {/* Parent Info (For Driver/Attendant) */}
+                {(isDriver || isAttendant) && (
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Parent Information</Text>
+                    <View style={styles.detailCard}>
+                      <Ionicons name="person-circle-outline" size={20} color={accentColor} />
+                      <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+                        {selectedStudent.parent_name || 'Not Available'}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Attendance Actions (For Driver/Attendant) */}
+                {(isDriver || isAttendant) && (
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Mark Today's Attendance</Text>
+                    <View style={[styles.actionGrid, isAttendant && !system.attendant?.has_control && { opacity: 0.5 }]}>
+                      <TouchableOpacity 
+                        style={[styles.actionBtnSmall, { backgroundColor: '#10B98120', borderColor: '#10B981' }]} 
+                        onPress={() => markAttendance(selectedStudent.id, 'pickup')}
+                      >
+                        <MaterialCommunityIcons name="bus-side" size={20} color="#10B981" />
+                        <Text style={[styles.actionBtnText, { color: '#10B981' }]}>Mark Pickup</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.actionBtnSmall, { backgroundColor: '#EF444420', borderColor: '#EF4444' }]} 
+                        onPress={() => markAttendance(selectedStudent.id, 'dropoff')}
+                      >
+                        <MaterialCommunityIcons name="bus-stop" size={20} color="#EF4444" />
+                        <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>Mark Dropoff</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Activity History (Last 7 Days) */}
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Activity History (Last 7 Days)</Text>
+                  {isAttendant && !system.attendant?.can_view_activities ? (
+                    <View style={styles.lockedSection}>
+                      <Ionicons name="lock-closed" size={24} color="#94A3B8" />
+                      <Text style={styles.lockedText}>Access restricted by driver.</Text>
+                    </View>
+                  ) : loadingActivities ? (
+                    <ActivityIndicator size="small" color={accentColor} />
+                  ) : studentActivities.length > 0 ? (
+                    studentActivities.map((act, idx) => (
+                      <View key={idx} style={styles.activityRow}>
+                        <View style={styles.activityDot} />
+                        <View style={styles.activityInfo}>
+                          <Text style={[styles.activityDate, { color: theme === 'dark' ? '#CBD5E1' : '#475569' }]}>
+                            {new Date(act.date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                          </Text>
+                          <View style={styles.activityBadges}>
+                            {act.pickup && <View style={[styles.statusBadge, { backgroundColor: '#10B98120' }]}><Text style={{ color: '#059669', fontSize: 10, fontWeight: 'bold' }}>PICKED UP</Text></View>}
+                            {act.drop_off && <View style={[styles.statusBadge, { backgroundColor: '#3B82F620' }]}><Text style={{ color: '#2563EB', fontSize: 10, fontWeight: 'bold' }}>DROPPED OFF</Text></View>}
+                          </View>
+                        </View>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyTextSmall}>No activities recorded recently.</Text>
+                  )}
+                </View>
+
+                {/* Dangerous Action */}
+                <TouchableOpacity 
+                  style={styles.removeBtn} 
+                  onPress={() => removeStudentFromSystem(selectedStudent.id)}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                  <Text style={styles.removeBtnText}>Remove Student from System</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* MULTI-CHILD SELECTION MODAL */}
       <Modal visible={isAddChildModalVisible} animationType="slide" transparent>
@@ -418,7 +773,7 @@ export default function SystemScreen() {
               <TouchableOpacity 
                 style={[styles.actionBtn, { backgroundColor: accentColor, opacity: selectedChildren.length > 0 ? 1 : 0.5 }]} 
                 disabled={selectedChildren.length === 0}
-                onPress={handleLinkChildren}
+                onPress={() => handleLinkChildren(role as string, userId)}
               >
                 <Text style={styles.btnTextLong}>Add {selectedChildren.length} Child(ren)</Text>
               </TouchableOpacity>
@@ -475,6 +830,8 @@ const styles = StyleSheet.create({
   studentSub: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
   studentLoc: { fontSize: 11, color: '#64748B', marginTop: 1 },
   emptyText: { textAlign: 'center', color: '#94A3B8', marginTop: 10, fontStyle: 'italic' },
+  lockedSection: { alignItems: 'center', padding: 20, gap: 8 },
+  lockedText: { color: '#94A3B8', fontSize: 13, fontStyle: 'italic' },
   mainActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 60, borderRadius: 20, marginTop: 20 },
   mainActionBtnText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
   addInlineBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginLeft: 'auto' },
@@ -494,5 +851,54 @@ const styles = StyleSheet.create({
   cancelLink: { color: '#64748B', fontWeight: 'bold' },
   actionBtn: { flex: 2, height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
   btnTextLong: { color: '#fff', fontWeight: 'bold' },
-  emptySelection: { padding: 40, alignItems: 'center' }
+  emptySelection: { padding: 40, alignItems: 'center' },
+  // New Styles
+  studentModalContent: { borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, height: '90%', marginTop: 'auto' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalCloseBtn: { padding: 5 },
+  profileHeader: { alignItems: 'center', marginBottom: 25 },
+  profileAvatar: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  avatarText: { color: '#fff', fontSize: 32, fontWeight: 'bold' },
+  detailName: { fontSize: 22, fontWeight: 'bold' },
+  detailSub: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
+  detailSection: { marginBottom: 25 },
+  detailLabel: { fontSize: 13, fontWeight: 'bold', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  detailCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 16, backgroundColor: 'rgba(148, 163, 184, 0.1)' },
+  detailValue: { fontSize: 16, fontWeight: '600' },
+  actionGrid: { flexDirection: 'row', gap: 12 },
+  actionBtnSmall: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 15, borderRadius: 16, borderWidth: 1 },
+  actionBtnText: { fontSize: 13, fontWeight: 'bold' },
+  activityRow: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 15 },
+  activityDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#3B82F6', marginTop: 6 },
+  activityInfo: { flex: 1, marginLeft: 15 },
+  activityDate: { fontSize: 13, fontWeight: '600' },
+  activityBadges: { flexDirection: 'row', gap: 6, marginTop: 4 },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
+  removeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 20, padding: 15, borderTopWidth: 1, borderTopColor: '#F1F5F9' },
+  removeBtnText: { color: '#EF4444', fontWeight: 'bold' },
+  emptyTextSmall: { fontSize: 13, color: '#94A3B8', fontStyle: 'italic' },
+  parentCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 20, marginBottom: 10, elevation: 1 },
+  parentName: { fontSize: 15, fontWeight: 'bold' },
+  parentEmail: { fontSize: 12, color: '#94A3B8' },
+  pendingBadge: { fontSize: 10, fontWeight: '900', color: '#F59E0B', backgroundColor: '#F59E0B20', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  // New Attendant Management Styles
+  cardHeaderSmall: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  presenceBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  presenceText: { fontSize: 10, fontWeight: 'bold' },
+  attendantInfoRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(148, 163, 184, 0.1)' },
+  attendantMain: { flex: 1 },
+  attendantNameLabel: { fontSize: 16, fontWeight: 'bold' },
+  attendantEmailLabel: { fontSize: 12, color: '#94A3B8' },
+  controlToggleContainer: { alignItems: 'flex-end', justifyContent: 'center' },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  toggleLabel: { fontSize: 10, fontWeight: 'bold', color: '#64748B', textTransform: 'uppercase' },
+  toggleSwitch: { width: 44, height: 24, borderRadius: 12, padding: 2, justifyContent: 'center' },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' },
+  presenceWarning: { fontSize: 11, color: '#EF4444', marginTop: 12, fontStyle: 'italic' },
+  statusHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+  controlStatusBox: { padding: 15, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
+  controlStatusText: { fontSize: 13, fontWeight: '600', lineHeight: 18, textAlign: 'center' },
+  removeParentBtnSmall: { padding: 10 },
+  leaveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 15, borderRadius: 20, borderWidth: 1, marginTop: 20 },
+  leaveBtnText: { fontWeight: 'bold', fontSize: 14, color: '#EF4444' }
 });

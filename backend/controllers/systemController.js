@@ -99,13 +99,13 @@ export const getSystemById = async (req, res) => {
 
     // 3. Safely Fetch attendant if exists
     try {
-      const { data: attEntry } = await supabase
+      const { data: attendants } = await supabase
         .from('system_attendants')
-        .select('is_present, attendant_id')
-        .eq('system_id', system.id)
-        .single();
+        .select('*')
+        .eq('system_id', system.id);
         
-      if (attEntry) {
+      if (attendants && attendants.length > 0) {
+        const attEntry = attendants[0]; // Take first attendant if multiple
         const { data: userData } = await supabase
           .from('users')
           .select('name, email')
@@ -114,14 +114,17 @@ export const getSystemById = async (req, res) => {
           
         if (userData) {
           system.attendant = {
+            id: attEntry.attendant_id,
             name: userData.name,
             email: userData.email,
-            is_present: attEntry.is_present
+            is_present: attEntry.is_present || false,
+            has_control: attEntry.has_control || false,
+            can_view_activities: attEntry.can_view_activities || false
           };
         }
       }
     } catch (attError) {
-      console.warn("[getSystemById] Attendant fetch skipped:", attError.message);
+      console.error("[getSystemById] Error fetching attendant:", attError.message);
     }
 
     res.status(200).json({ system });
@@ -147,10 +150,6 @@ export const joinSystem = async (req, res) => {
       .eq('join_code', joinCode.toUpperCase())
       .single();
 
-    if (systemError || !system) {
-      return res.status(404).json({ message: "Invalid join code. System not found." });
-    }
-
     // 2. Add parent to system_parents
     const { error: joinError } = await supabase
       .from('system_parents')
@@ -161,6 +160,12 @@ export const joinSystem = async (req, res) => {
         return res.status(409).json({ message: "You are already a member of this system." });
       }
       throw joinError;
+    }
+
+    // 3. Notify Staff
+    const { data: userData } = await supabase.from('users').select('name').eq('id', parentId).single();
+    if (userData) {
+      await notifyStaff(system.id, `${userData.name} has joined the system "${system.name}" as a parent.`, 'parent_joined');
     }
 
     res.status(200).json({ message: "Successfully joined the transportation system.", systemId: system.id });
@@ -197,8 +202,7 @@ export const joinSystemAttendant = async (req, res) => {
 
     if (joinError) throw joinError;
 
-    // 3. Notify parents
-    // Get attendant name
+    // 3. Fetch attendant name for notifications
     const { data: userData } = await supabase
       .from('users')
       .select('name')
@@ -207,22 +211,9 @@ export const joinSystemAttendant = async (req, res) => {
     
     const attendantName = userData?.name || "A new attendant";
 
-    // Get all parents linked to this system
-    const { data: parents, error: pError } = await supabase
-      .from('system_parents')
-      .select('parent_id')
-      .eq('system_id', system.id);
-
-    if (!pError && parents && parents.length > 0) {
-      const notifications = parents.map(p => ({
-        user_id: p.parent_id,
-        system_id: system.id, // Added system_id
-        message: `${attendantName} has joined the system "${system.name}" and is present.`,
-        type: 'attendant_presence'
-      }));
-
-      await supabase.from('notifications').insert(notifications);
-    }
+    // 4. Notify Driver and Parents
+    await notifyStaff(system.id, `${attendantName} has joined the system "${system.name}" as an attendant.`, 'attendant_joined');
+    await notifyParents(system.id, `${attendantName} has joined the vehicle staff for system "${system.name}".`, 'attendant_joined');
 
     res.status(200).json({ message: "Successfully registered as attendant for this system.", systemId: system.id });
   } catch (error) {
@@ -253,6 +244,14 @@ export const getSystemParents = async (req, res) => {
 export const removeParent = async (req, res) => {
   try {
     const { systemId, parentId } = req.params;
+    const { role, userId } = req.query; // Using query for DELETE or body if caller uses PUT
+
+    // 1. Get Parent Name and System Name before removal
+    const { data: parentData } = await supabase.from('users').select('name').eq('id', parentId).single();
+    const { data: systemData } = await supabase.from('transportation_systems').select('name').eq('id', systemId).single();
+    
+    const parentName = parentData?.name || "A parent";
+    const systemName = systemData?.name || "the system";
 
     const { error } = await supabase
       .from('system_parents')
@@ -261,6 +260,33 @@ export const removeParent = async (req, res) => {
       .eq('parent_id', parentId);
 
     if (error) throw error;
+
+    // 2. Notifications
+    if (role === 'Attendant') {
+      const { data: attData } = await supabase.from('users').select('name').eq('id', userId).single();
+      const attendantName = attData?.name || "An attendant";
+      
+      // Notify Driver
+      await notifyStaff(systemId, `${attendantName} has removed ${parentName} from the system.`, 'parent_removed', userId);
+      // Notify Parent
+      await supabase.from('notifications').insert([{
+        user_id: parentId,
+        system_id: systemId,
+        message: `You have been removed from the transportation system "${systemName}" by the attendant.`,
+        type: 'parent_removed'
+      }]);
+    } else if (role === 'Parent' || parentId === userId) {
+      // Parent leaving
+      await notifyStaff(systemId, `${parentName} has left the system "${systemName}".`, 'parent_left');
+    } else if (role === 'Driver') {
+      // Driver removing parent
+      await supabase.from('notifications').insert([{
+        user_id: parentId,
+        system_id: systemId,
+        message: `You have been removed from the transportation system "${systemName}" by the driver.`,
+        type: 'parent_removed'
+      }]);
+    }
 
     res.status(200).json({ message: "Parent removed from system successfully." });
   } catch (error) {
@@ -381,15 +407,36 @@ export const updateAttendantPresence = async (req, res) => {
 
     if (pError) throw pError;
 
-    // 4. Create notifications for parents
+    // 4. Create notifications for parents and driver
+    const { data: systemInfo } = await supabase
+      .from('transportation_systems')
+      .select('driver_id')
+      .eq('id', systemId)
+      .single();
+
+    const notifications = [];
+    
+    // Add parents to notifications
     if (parents && parents.length > 0) {
-      const notifications = parents.map(p => ({
+      parents.forEach(p => notifications.push({
         user_id: p.parent_id,
-        system_id: systemId, // Added system_id
+        system_id: systemId,
         message: `${attendantName} is now ${isPresent ? 'PRESENT' : 'NOT PRESENT'} in the vehicle.`,
         type: 'attendant_presence'
       }));
+    }
 
+    // Add driver to notifications
+    if (systemInfo?.driver_id) {
+      notifications.push({
+        user_id: systemInfo.driver_id,
+        system_id: systemId,
+        message: `Attendant ${attendantName} is now marked as ${isPresent ? 'PRESENT' : 'NOT PRESENT'}.`,
+        type: 'attendant_presence'
+      });
+    }
+
+    if (notifications.length > 0) {
       const { error: nError } = await supabase
         .from('notifications')
         .insert(notifications);
@@ -399,7 +446,7 @@ export const updateAttendantPresence = async (req, res) => {
       }
     }
 
-    res.status(200).json({ message: "Presence status updated and parents notified.", is_present: isPresent });
+    res.status(200).json({ message: "Presence status updated and notifications sent.", is_present: isPresent });
   } catch (error) {
     console.error("[updateAttendantPresence] Error:", error);
     res.status(500).json({ message: "Error updating presence", error: error.message });
@@ -522,5 +569,161 @@ export const updateParentPickup = async (req, res) => {
   } catch (error) {
     console.error("Error updating parent pickup location:", error);
     res.status(500).json({ message: "Error updating pickup location", error: error.message });
+  }
+};
+
+// Function: Update attendant control status
+export const updateAttendantControl = async (req, res) => {
+  try {
+    const { attendantId } = req.params;
+    const { hasControl } = req.body;
+
+    // 1. Fetch current presence status
+    const { data: attEntry, error: fetchError } = await supabase
+      .from('system_attendants')
+      .select('is_present, system_id')
+      .eq('attendant_id', attendantId)
+      .single();
+
+    if (fetchError || !attEntry) {
+      return res.status(404).json({ message: "Attendant not found in any system." });
+    }
+
+    // 2. Validation: Cannot give control if not present
+    if (hasControl && !attEntry.is_present) {
+      return res.status(400).json({ message: "Cannot give control to an attendant who is not present." });
+    }
+
+    // 3. Update control status
+    const { error: updateError } = await supabase
+      .from('system_attendants')
+      .update({ has_control: hasControl })
+      .eq('attendant_id', attendantId);
+
+    if (updateError) throw updateError;
+
+    // 4. Notify attendant
+    await supabase.from('notifications').insert([{
+      user_id: attendantId,
+      system_id: attEntry.system_id,
+      message: `You have been ${hasControl ? 'GRANTED' : 'REVOKED'} full control of the system.`,
+      type: 'control_update'
+    }]);
+
+    res.status(200).json({ 
+      message: `Control ${hasControl ? 'granted' : 'revoked'} successfully.`, 
+      has_control: hasControl 
+    });
+  } catch (error) {
+    console.error("[updateAttendantControl] Error:", error);
+    res.status(500).json({ message: "Error updating control", error: error.message });
+  }
+};
+
+// Function: Update attendant activity access status
+export const updateAttendantActivityAccess = async (req, res) => {
+  try {
+    const { attendantId } = req.params;
+    const { canViewActivities } = req.body;
+
+    // 1. Fetch current entry
+    const { data: attEntry, error: fetchError } = await supabase
+      .from('system_attendants')
+      .select('system_id')
+      .eq('attendant_id', attendantId)
+      .single();
+
+    if (fetchError || !attEntry) {
+      return res.status(404).json({ message: "Attendant not found in any system." });
+    }
+
+    // 2. Update status
+    const { error: updateError } = await supabase
+      .from('system_attendants')
+      .update({ can_view_activities: canViewActivities })
+      .eq('attendant_id', attendantId);
+
+    if (updateError) throw updateError;
+
+    // 3. Notify attendant
+    await supabase.from('notifications').insert([{
+      user_id: attendantId,
+      system_id: attEntry.system_id,
+      message: `You have been ${canViewActivities ? 'GRANTED' : 'REVOKED'} permission to view student activities.`,
+      type: 'activity_access_update'
+    }]);
+
+    res.status(200).json({ 
+      message: `Activity access ${canViewActivities ? 'granted' : 'revoked'} successfully.`, 
+      can_view_activities: canViewActivities 
+    });
+  } catch (error) {
+    console.error("[updateAttendantActivityAccess] Error:", error);
+    res.status(500).json({ message: "Error updating activity access", error: error.message });
+  }
+};
+
+// HELPER: Notify all staff (Driver + Attendants) of a system
+export const notifyStaff = async (systemId, message, type = 'system_update', excludeId = null) => {
+  try {
+    // 1. Get Driver
+    const { data: system } = await supabase
+      .from('transportation_systems')
+      .select('driver_id')
+      .eq('id', systemId)
+      .single();
+
+    // 2. Get Attendants
+    const { data: attendants } = await supabase
+      .from('system_attendants')
+      .select('attendant_id')
+      .eq('system_id', systemId);
+
+    const recipients = [];
+    if (system?.driver_id && system.driver_id !== excludeId) recipients.push(system.driver_id);
+    if (attendants) {
+      attendants.forEach(a => {
+        if (a.attendant_id !== excludeId) recipients.push(a.attendant_id);
+      });
+    }
+
+    if (recipients.length > 0) {
+      const notifications = recipients.map(uid => ({
+        user_id: uid,
+        system_id: systemId,
+        message,
+        type
+      }));
+      await supabase.from('notifications').insert(notifications);
+    }
+  } catch (err) {
+    console.error("[notifyStaff] Error:", err.message);
+  }
+};
+
+// HELPER: Notify all parents of a system
+export const notifyParents = async (systemId, message, type = 'system_update', excludeId = null) => {
+  try {
+    const { data: parents } = await supabase
+      .from('system_parents')
+      .select('parent_id')
+      .eq('system_id', systemId);
+
+    if (parents && parents.length > 0) {
+      const notifications = parents
+        .filter(p => p.parent_id !== excludeId)
+        .map(p => ({
+          user_id: p.parent_id,
+          system_id: systemId,
+          message,
+          type
+        }));
+      
+      if (notifications.length > 0) {
+        await supabase.from('notifications').insert(notifications);
+      }
+    }
+  } catch (err) {
+    console.error("[notifyParents] Error:", err.message);
   }
 };

@@ -10,9 +10,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 //   Mac:     Open Terminal and run: ipconfig getifaddr en0
 //   Windows: Open CMD and run:     ipconfig (look for IPv4 Address)
 //
-// Example: http://172.28.6.12:5000/api
+// Example: http://172.20.10.3:5000/api
 // ─────────────────────────────────────────────────────────
+<<<<<<< HEAD
 const API_URL = 'http://172.20.10.2:5000/api';
+=======
+const API_URL = 'http://192.168.1.6:5000/api';
+>>>>>>> IT24100110
 
 // Create the Axios HTTP client with the base URL
 const api = axios.create({

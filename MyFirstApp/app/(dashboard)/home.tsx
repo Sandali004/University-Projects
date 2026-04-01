@@ -50,21 +50,29 @@ export default function DashboardHomeScreen() {
       let currentId = '';
       let currentName = '';
 
-      if (driverDataStr) {
-        const data = JSON.parse(driverDataStr);
-        currentRole = 'Driver';
-        currentId = data.id;
-        currentName = data.name;
-      } else if (parentDataStr) {
-        const data = JSON.parse(parentDataStr);
-        currentRole = 'Parent';
-        currentId = data.id;
-        currentName = data.name;
-      } else if (attendantDataStr) {
-        const data = JSON.parse(attendantDataStr);
-        currentRole = 'Attendant';
-        currentId = data.id;
-        currentName = data.name;
+      try {
+        if (driverDataStr) {
+          const data = JSON.parse(driverDataStr);
+          currentRole = 'Driver';
+          currentId = data.id;
+          currentName = data.name;
+        } else if (parentDataStr) {
+          const data = JSON.parse(parentDataStr);
+          currentRole = 'Parent';
+          currentId = data.id;
+          currentName = data.name;
+        } else if (attendantDataStr) {
+          const data = JSON.parse(attendantDataStr);
+          currentRole = 'Attendant';
+          currentId = data.id;
+          currentName = data.name;
+        }
+      } catch (parseError) {
+        console.error("Error parsing user data from storage:", parseError);
+        // Clear tokens/data if it's corrupted
+        await AsyncStorage.multiRemove(['driverData', 'parentData', 'attendantData', 'driverToken', 'parentToken', 'attendantToken']);
+        router.replace('/');
+        return;
       }
 
       setRole(currentRole);
@@ -269,21 +277,39 @@ export default function DashboardHomeScreen() {
           )}
 
           {isDriver && (
-            <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => setIsCreateModalVisible(true)}>
-              <View style={[styles.iconBox, { backgroundColor: '#DBEAFE', width: 60, height: 60 }]}>
-                <MaterialCommunityIcons name="plus-thick" size={32} color="#3B82F6" />
-              </View>
-              <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Create System</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => setIsCreateModalVisible(true)}>
+                <View style={[styles.iconBox, { backgroundColor: '#DBEAFE', width: 60, height: 60 }]}>
+                  <MaterialCommunityIcons name="plus-thick" size={32} color="#3B82F6" />
+                </View>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Create System</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => router.push('/notifications' as any)}>
+                <View style={[styles.iconBox, { backgroundColor: '#FEE2E2', width: 60, height: 60 }]}>
+                  <MaterialCommunityIcons name="bell-outline" size={32} color="#EF4444" />
+                </View>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Notices</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {isAttendant && (
-            <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => setIsJoinModalVisible(true)}>
-              <View style={[styles.iconBox, { backgroundColor: '#F3E8FF', width: 60, height: 60 }]}>
-                <MaterialCommunityIcons name="van-passenger" size={32} color="#8B5CF6" />
-              </View>
-              <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Join System</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+              <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => setIsJoinModalVisible(true)}>
+                <View style={[styles.iconBox, { backgroundColor: '#F3E8FF', width: 60, height: 60 }]}>
+                  <MaterialCommunityIcons name="van-passenger" size={32} color="#8B5CF6" />
+                </View>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Join System</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => router.push('/notifications' as any)}>
+                <View style={[styles.iconBox, { backgroundColor: '#FEE2E2', width: 60, height: 60 }]}>
+                  <MaterialCommunityIcons name="bell-outline" size={32} color="#EF4444" />
+                </View>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Notices</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
 

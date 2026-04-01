@@ -80,6 +80,7 @@ export const loginDriver = async (req, res) => {
     }
 
     // Find user by email AND role = 'driver'
+    console.log(`[Backend] Attempting login for identifier: ${identifier} (role: driver)`);
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
@@ -88,14 +89,19 @@ export const loginDriver = async (req, res) => {
       .single();
 
     if (error || !user) {
+      console.warn(`[Backend] Login failed: User not found or error occurred for ${identifier}. Error:`, error?.message || "User not found");
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
+    console.log(`[Backend] User found: ${user.email}. Comparing passwords...`);
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
+      console.warn(`[Backend] Login failed: Password mismatch for ${identifier}.`);
       return res.status(401).json({ message: "Invalid email or password." });
     }
+
+    console.log(`[Backend] Login successful for: ${user.email}`);
 
     // Generate JWT token
     const token = jwt.sign(
@@ -121,28 +127,70 @@ export const loginDriver = async (req, res) => {
 
 export const sendAlert = async (req, res) => {
   try {
-    const { driverId, alertType, message } = req.body;
+    const { driverId, alertType, message, systemId } = req.body;
 
     if (!driverId || !alertType || !message) {
-      return res.status(400).json({ message: "Driver ID, alert type, and message are required." });
+      return res.status(400).json({ message: "Sender ID, alert type, and message are required." });
     }
 
-    // 1. Find the system for this driver
-    const { data: system, error: sysError } = await supabase
-      .from('transportation_systems')
-      .select('id, name')
-      .eq('driver_id', driverId)
-      .single();
+    let targetSystemId = systemId;
+    let systemName = "";
 
-    if (sysError || !system) {
-      return res.status(404).json({ message: "No transportation system found for this driver." });
+    // 1. Identify the system and verify permissions
+    if (targetSystemId) {
+      // Find system by ID
+      const { data: system, error: sysError } = await supabase
+        .from('transportation_systems')
+        .select('id, name, driver_id')
+        .eq('id', targetSystemId)
+        .single();
+
+      if (sysError || !system) {
+        return res.status(404).json({ message: "Transportation system not found." });
+      }
+
+      systemName = system.name;
+      
+      // Verify Sender Permissions
+      const isDriver = system.driver_id === driverId;
+      let isAuthorizedAttendant = false;
+
+      if (!isDriver) {
+        const { data: attendantEntry } = await supabase
+          .from('system_attendants')
+          .select('has_control')
+          .eq('system_id', targetSystemId)
+          .eq('attendant_id', driverId)
+          .single();
+        
+        if (attendantEntry?.has_control) {
+          isAuthorizedAttendant = true;
+        }
+      }
+
+      if (!isDriver && !isAuthorizedAttendant) {
+        return res.status(403).json({ message: "You do not have permission to send alerts for this system." });
+      }
+    } else {
+      // Fallback: Find system by driver_id (Old behavior/Driver only)
+      const { data: system, error: sysError } = await supabase
+        .from('transportation_systems')
+        .select('id, name')
+        .eq('driver_id', driverId)
+        .single();
+
+      if (sysError || !system) {
+        return res.status(404).json({ message: "No transportation system found for this driver." });
+      }
+      targetSystemId = system.id;
+      systemName = system.name;
     }
 
     // 2. Find all parents connected to this system
     const { data: parents, error: parError } = await supabase
       .from('system_parents')
       .select('parent_id')
-      .eq('system_id', system.id);
+      .eq('system_id', targetSystemId);
 
     if (parError || !parents || parents.length === 0) {
       return res.status(200).json({ message: "No parents in system to notify." });
@@ -151,7 +199,8 @@ export const sendAlert = async (req, res) => {
     // 3. Create a notification for each parent
     const notifications = parents.map(p => ({
       user_id: p.parent_id,
-      message: `${system.name} Update: [${alertType}] ${message}`,
+      system_id: targetSystemId,
+      message: `${systemName} Update: [${alertType}] ${message}`,
       type: alertType.toLowerCase().replace(/\s+/g, '_')
     }));
 

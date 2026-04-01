@@ -14,7 +14,9 @@ import {
   joinSystemAttendant,
   getAttendantSystems,
   updateAttendantPresence,
-  updateParentPickup
+  updateParentPickup,
+  updateAttendantControl,
+  updateAttendantActivityAccess
 } from "../controllers/systemController.js";
 
 const router = express.Router();
@@ -41,5 +43,7 @@ router.put("/:systemId/parent/:parentId/pickup", updateParentPickup);
 router.post("/join-attendant", joinSystemAttendant);
 router.get("/attendant/:attendantId", getAttendantSystems);
 router.put("/attendant/:attendantId/presence", updateAttendantPresence);
+router.put("/attendant/:attendantId/control", updateAttendantControl);
+router.put("/attendant/:attendantId/activities-access", updateAttendantActivityAccess);
 
 export default router;

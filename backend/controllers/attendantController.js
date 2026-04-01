@@ -73,6 +73,7 @@ export const loginAttendant = async (req, res) => {
     }
 
     // Find user by email AND role = 'attendant'
+    console.log(`[Backend] Attempting login for identifier: ${identifier} (role: attendant)`);
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
@@ -81,13 +82,18 @@ export const loginAttendant = async (req, res) => {
       .single();
 
     if (error || !user) {
+      console.warn(`[Backend] Login failed: User not found or error occurred for ${identifier}. Error:`, error?.message || "User not found");
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
+    console.log(`[Backend] User found: ${user.email}. Comparing passwords...`);
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
+      console.warn(`[Backend] Login failed: Password mismatch for ${identifier}.`);
       return res.status(401).json({ message: "Invalid email or password." });
     }
+
+    console.log(`[Backend] Login successful for: ${user.email}`);
 
     const token = jwt.sign(
       { id: user.id, role: user.role },

@@ -18,43 +18,56 @@ const { width } = Dimensions.get('window');
  */
 export default function MapScreen() {
   const router = useRouter();
+  // useLocalSearchParams() gets the systemId from the URL.
+  // The systemId is CRITICAL: It acts as the "bridge" between the Driver and the Parent.
+  // Both users use the SAME systemId so the database knows which Driver is sending 
+  // location data and which Parent should receive it.
   const { systemId } = useLocalSearchParams();
   
   // -- State variables --
   const [role, setRole] = useState<'Driver' | 'Parent' | 'Attendant' | null>(null);
   const [userId, setUserId] = useState('');
   const [system, setSystem] = useState<any>(null);
-  const [vanLocation, setVanLocation] = useState<any>(null);
+  const [vanLocation, setVanLocation] = useState<any>(null); // Stores the van's lat/lng to move the marker
   const [isTracking, setIsTracking] = useState(false); 
   const [loading, setLoading] = useState(true);
   const [statusText, setStatusText] = useState('Initializing Map...');
   const [theme, setTheme] = useState<'light' | 'dark'>('dark');
 
-  // Pickup Location State
-  const [parentPickups, setParentPickups] = useState<any[]>([]); // For Drivers/Attendants
-  const [myPickup, setMyPickup] = useState<any>(null); // For Parents
-  const [tempPickup, setTempPickup] = useState<any>(null); // Selection point
+  // Pickup Location State (Where the parent wants to be picked up)
+  const [parentPickups, setParentPickups] = useState<any[]>([]); // For Drivers/Attendants to see all kids
+  const [myPickup, setMyPickup] = useState<any>(null); // For a Parent to see their own pin
+  const [tempPickup, setTempPickup] = useState<any>(null); // Temporary point when picking a spot
   const [isSettingLocation, setIsSettingLocation] = useState(false);
   const [savingPickup, setSavingPickup] = useState(false);
 
-  // Refs
+  // Refs (Variables that persist without triggering re-renders)
   const mapRef = useRef<MapView>(null);
   const locationSubscription = useRef<any>(null);
   const pollInterval = useRef<any>(null);
 
   useEffect(() => {
+    // This runs once when the screen loads or if the systemId changes
     loadInitialData();
+    
+    // Cleanup function: Stops tracking/polling when the user leaves the screen
     return () => {
       stopDriverTracking();
       if (pollInterval.current) clearInterval(pollInterval.current);
     };
   }, [systemId]);
 
+  /**
+   * loadInitialData: The starting point for the map screen.
+   * 1. Detects if the user is a Driver, Parent, or Attendant from storage.
+   * 2. Fetches van/system details from the backend using the systemId.
+   */
   const loadInitialData = async () => {
     try {
       setLoading(true);
       console.log('[Mapv1.3] Initializing... SystemId:', systemId);
 
+      // Check local storage to see who is logged in
       const driverData = await AsyncStorage.getItem('driverData');
       const parentData = await AsyncStorage.getItem('parentData');
       const attendantData = await AsyncStorage.getItem('attendantData');
@@ -76,10 +89,13 @@ export default function MapScreen() {
       setRole(currentRole);
       setUserId(currentId);
 
+      // FETCHING SYSTEM DETAILS:
+      // We send the systemId to the API to get information about this specific van system.
       const response = await api.get(`/system/${systemId}`);
       setSystem(response.data.system);
 
       if (currentRole === 'Driver' || currentRole === 'Attendant') {
+        // Drivers need to see where all the parents (students) are waiting
         fetchParentPickups();
         if (currentRole === 'Driver') {
           setStatusText('Ready to Start Tracking');
@@ -93,9 +109,11 @@ export default function MapScreen() {
           startPolling();
         }
       } else {
-        // Parent Mode
+        // Parents only need to see their own pickup spot and the van's location
         await fetchMyPickup(currentId);
         setStatusText('Tracking Van Location...');
+        
+        // START POLLING: Parents need to keep asking the database for the van's location
         startPolling();
       }
     } catch (error) {
@@ -108,6 +126,7 @@ export default function MapScreen() {
 
   const fetchParentPickups = async () => {
     try {
+      // API call to get all saved pickup locations for parents in this system
       const response = await api.get(`/system/${systemId}/parents`);
       const list = response.data.parents || [];
       setParentPickups(list.filter((p: any) => p.pickup_lat && p.pickup_lng));
@@ -128,6 +147,10 @@ export default function MapScreen() {
     } catch (err) {}
   };
 
+  /**
+   * savePickupLocation: Saves the parent's chosen spot on the map.
+   * This is stored in the database so the driver can see where to stop.
+   */
   const savePickupLocation = async () => {
     if (!tempPickup) return;
     setSavingPickup(true);
@@ -149,6 +172,7 @@ export default function MapScreen() {
   };
 
   const onMapLongPress = (e: any) => {
+    // Only parents can set a pickup location by long-pressing
     if (role === 'Parent' && isSettingLocation) {
       setTempPickup(e.nativeEvent.coordinate);
     }
@@ -163,24 +187,52 @@ export default function MapScreen() {
     });
   };
 
+  /**
+   * DRIVER TRACKING LOGIC:
+   * 1. This function starts the GPS "watch" on the Driver's phone.
+   * 2. Every time the Driver moves, we update the Supabase database.
+   * 3. This is how the location flows: DRIVER PHONE -> SUPABASE DATABASE -> PARENT PHONE.
+   */
   const startDriverTracking = async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return;
+      
       setIsTracking(true);
       setStatusText('BROADCASTING LIVE');
+
       try {
+        // Notify the server that tracking has started
         await api.post(`/system/${systemId}/tracking/start`, { 
           driverName: system?.driver?.name || "The driver" 
         });
       } catch (err) {}
+
+      // watchPositionAsync listens for physical movement of the phone
       locationSubscription.current = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, timeInterval: 10000, distanceInterval: 10 },
+        { 
+          accuracy: Location.Accuracy.High, 
+          timeInterval: 10000, // Check every 10 seconds
+          distanceInterval: 10 // Or if they move 10 meters
+        },
         async (newLoc) => {
           const { latitude, longitude } = newLoc.coords;
+          
+          // 1. Update local state to move the driver's own van marker
           setVanLocation({ latitude, longitude });
           centerMap(latitude, longitude);
-          await supabase.from('transportation_systems').update({ current_lat: latitude, current_lng: longitude, updated_at: new Date().toISOString() }).eq('id', systemId);
+
+          // 2. UPDATE DATABASE: This is the most important line for the flow.
+          // We update the 'transportation_systems' table where ID matches our systemId.
+          // The Parent's app will read these values from the database.
+          await supabase
+            .from('transportation_systems')
+            .update({ 
+              current_lat: latitude, 
+              current_lng: longitude, 
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', systemId);
         }
       );
     } catch (error) { setIsTracking(false); }
@@ -193,22 +245,47 @@ export default function MapScreen() {
     try { await api.post(`/system/${systemId}/tracking/stop`); } catch (err) {}
   };
 
+  /**
+   * POLLING LOGIC:
+   * Parents don't "watch" the driver. Instead, they "poll" (ask) the database
+   * every few seconds to see if the coordinates have changed.
+   */
   const startPolling = () => {
     if (pollInterval.current) clearInterval(pollInterval.current);
+    
+    // Fetch immediately when starting
     fetchVanLocation();
+    
+    // Then fetch every 10 seconds (10,000 milliseconds)
     pollInterval.current = setInterval(fetchVanLocation, 10000);
   };
 
+  /**
+   * PARENT FETCH LOGIC:
+   * Goes to the database and gets the latest latitude/longitude saved by the driver.
+   */
   const fetchVanLocation = async () => {
     try {
-      const { data, error } = await supabase.from('transportation_systems').select('current_lat, current_lng, updated_at').eq('id', systemId).single();
+      // We look at the 'transportation_systems' table.
+      // We select the current location columns for the row that matches our systemId.
+      const { data, error } = await supabase
+        .from('transportation_systems')
+        .select('current_lat, current_lng, updated_at')
+        .eq('id', systemId)
+        .single();
+
       if (data?.current_lat) {
         const lat = parseFloat(data.current_lat);
         const lng = parseFloat(data.current_lng);
+        
+        // Check if the data is "stale" (older than 1 minute)
+        // If the driver hasn't updated the DB for a while, they might be offline.
         const lastUpdate = new Date(data.updated_at).getTime();
         const stale = (Date.now() - lastUpdate) > 60000;
+
         if (!stale) {
           setStatusText('Van is LIVE');
+          // Update the marker position on the Parent's map
           setVanLocation({ latitude: lat, longitude: lng });
         } else {
           setStatusText('Van Offline');
@@ -233,6 +310,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
       
+      {/* MAP COMPONENT */}
       <MapView
         ref={mapRef as any}
         style={styles.map}
@@ -244,6 +322,7 @@ export default function MapScreen() {
         }}
         onLongPress={onMapLongPress}
       >
+        {/* DRIVER / VAN MARKER: This moves automatically whenever vanLocation state changes */}
         {vanLocation && (
           <Marker coordinate={vanLocation} title="School Van" zIndex={100}>
             <View style={[styles.vanMarker, { borderColor: isDriver ? '#3B82F6' : '#8B5CF6' }]}>
@@ -252,7 +331,7 @@ export default function MapScreen() {
           </Marker>
         )}
 
-        {/* Parent's Pickup Pin */}
+        {/* Parent's Own Pickup Pin */}
         {(myPickup || tempPickup) && isParent && (
           <Marker coordinate={tempPickup || myPickup} zIndex={50}>
             <View style={[styles.pickupMarker, { borderColor: '#10B981' }]}>
@@ -261,7 +340,7 @@ export default function MapScreen() {
           </Marker>
         )}
 
-        {/* Driver/Attendant View Markers */}
+        {/* Driver/Attendant View: Shows all children's pickup spots on their route */}
         {!isParent && parentPickups.map((p: any) => (
           <Marker 
             key={p.parent_id} 

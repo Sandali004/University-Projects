@@ -37,8 +37,8 @@ export const updateProfile = async (req, res) => {
       emergency_contact: emergencyContact?.trim(),
     };
 
-    // Remove undefined fields
-    Object.keys(updateData).forEach(key => updateData[key] === undefined && delete updateData[key]);
+    // Remove undefined or null fields
+    Object.keys(updateData).forEach(key => (updateData[key] === undefined || updateData[key] === null) && delete updateData[key]);
 
     const { data, error } = await supabase
       .from("users")

@@ -52,14 +52,16 @@ export default function ProfileScreen() {
   const handleUpdate = async () => {
     setSaving(true);
     try {
-      const response = await api.put('/profile/update', { 
-        userId, 
-        name: formData.name, 
-        email: formData.email, 
-        phone: formData.phone,
-        licenseNumber: formData.license_number,
-        emergencyContact: formData.emergency_contact
-      });
+      const payload = {
+        userId,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || '',
+        licenseNumber: formData.license_number || '',
+        emergencyContact: formData.emergency_contact || ''
+      };
+      
+      const response = await api.put('/profile/update', payload);
       
       setProfile(response.data.profile);
       setEditMode(false);
@@ -73,8 +75,9 @@ export default function ProfileScreen() {
         parsed.name = response.data.profile.name;
         await AsyncStorage.setItem(storageKey, JSON.stringify(parsed));
       }
-    } catch (error) {
-      Alert.alert("Error", "Failed to update profile.");
+    } catch (error: any) {
+      console.error("[handleUpdate] Error:", error.response?.data || error.message);
+      Alert.alert("Error", error.response?.data?.message || "Failed to update profile.");
     } finally {
       setSaving(false);
     }
@@ -115,8 +118,6 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#1E293B" />

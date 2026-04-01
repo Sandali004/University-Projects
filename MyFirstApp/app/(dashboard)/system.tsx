@@ -384,6 +384,45 @@ export default function SystemScreen() {
               <Text style={[styles.joinCodeText, { color: accentColor }]}>{system.join_code}</Text>
             </View>
           )}
+
+          {/* DRIVER & VEHICLE DETAILS (For Parents/Attendants) */}
+          {(isParent || isAttendant) && (
+            <View style={styles.detailsList}>
+              <View style={styles.detailRow}>
+                <Ionicons name="person" size={18} color={accentColor} />
+                <View style={styles.detailTextCol}>
+                  <Text style={styles.detailLabel}>Driver</Text>
+                  <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.driver?.name || 'N/A'}</Text>
+                  {system.driver?.phone && <Text style={styles.detailSubValue}>{system.driver.phone}</Text>}
+                </View>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Ionicons name="bus" size={18} color={accentColor} />
+                <View style={styles.detailTextCol}>
+                  <Text style={styles.detailLabel}>Vehicle</Text>
+                  <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+                    {system.vehicle?.plate_number || system.plate_number}
+                  </Text>
+                  <Text style={styles.detailSubValue}>
+                    {system.vehicle?.model || system.vehicle_type} 
+                    {system.vehicle?.color ? ` • ${system.vehicle.color}` : ''}
+                  </Text>
+                </View>
+              </View>
+
+              {system.attendant && (
+                <View style={[styles.detailRow, { marginTop: 15 }]}>
+                  <Ionicons name="id-card" size={18} color={accentColor} />
+                  <View style={styles.detailTextCol}>
+                    <Text style={styles.detailLabel}>Attendant</Text>
+                    <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.attendant.name}</Text>
+                    <Text style={styles.detailSubValue}>{system.attendant.email}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
         </View>
         
         {/* ATTENDANT MANAGEMENT (Driver Only) */}
@@ -830,6 +869,13 @@ const styles = StyleSheet.create({
   studentSub: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
   studentLoc: { fontSize: 11, color: '#64748B', marginTop: 1 },
   emptyText: { textAlign: 'center', color: '#94A3B8', marginTop: 10, fontStyle: 'italic' },
+  detailSubValue: { fontSize: 12, color: '#64748B' },
+  detailsList: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(148, 163, 184, 0.1)' },
+  detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 },
+  detailTextCol: { flex: 1 },
+  detailLabel: { fontSize: 10, fontWeight: 'bold', color: '#94A3B8', textTransform: 'uppercase', marginBottom: 2 },
+  detailValue: { fontSize: 14, fontWeight: 'bold' },
+  detailCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 16, backgroundColor: 'rgba(148, 163, 184, 0.1)' },
   lockedSection: { alignItems: 'center', padding: 20, gap: 8 },
   lockedText: { color: '#94A3B8', fontSize: 13, fontStyle: 'italic' },
   mainActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 60, borderRadius: 20, marginTop: 20 },
@@ -862,9 +908,8 @@ const styles = StyleSheet.create({
   detailName: { fontSize: 22, fontWeight: 'bold' },
   detailSub: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
   detailSection: { marginBottom: 25 },
-  detailLabel: { fontSize: 13, fontWeight: 'bold', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  detailCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 16, backgroundColor: 'rgba(148, 163, 184, 0.1)' },
-  detailValue: { fontSize: 16, fontWeight: '600' },
+  detailLabelLarge: { fontSize: 13, fontWeight: 'bold', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
+  detailValueLarge: { fontSize: 16, fontWeight: '600' },
   actionGrid: { flexDirection: 'row', gap: 12 },
   actionBtnSmall: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 15, borderRadius: 16, borderWidth: 1 },
   actionBtnText: { fontSize: 13, fontWeight: 'bold' },

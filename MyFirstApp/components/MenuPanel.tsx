@@ -103,6 +103,13 @@ export default function MenuPanel({ isVisible, onClose, role, userName, theme, o
             <Text style={styles.menuItemText}>App Info</Text>
           </TouchableOpacity>
 
+          {role === 'Driver' && (
+            <TouchableOpacity style={styles.menuItem} onPress={() => { onClose(); router.push('/vehicles'); }}>
+              <MaterialCommunityIcons name="bus-school" size={24} color="#64748B" />
+              <Text style={styles.menuItemText}>My Vehicles</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={24} color="#EF4444" />
             <Text style={[styles.menuItemText, { color: '#EF4444' }]}>Logout</Text>

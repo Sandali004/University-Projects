@@ -9,10 +9,10 @@ const generateJoinCode = () => {
 // Function: Create a new transportation system
 export const createSystem = async (req, res) => {
   try {
-    const { driverId, name, plateNumber, vehicleType, maxSeats, routeId } = req.body;
+    const { driverId, name, plateNumber, vehicleType, maxSeats, routeId, vehicleId } = req.body;
 
-    if (!driverId || !name || !plateNumber) {
-      return res.status(400).json({ message: "Driver ID, system name, and plate number are required." });
+    if (!driverId || !name) {
+      return res.status(400).json({ message: "Driver ID and system name are required." });
     }
 
     const joinCode = generateJoinCode();
@@ -23,7 +23,8 @@ export const createSystem = async (req, res) => {
       plate_number: plateNumber,
       vehicle_type: vehicleType,
       max_seats: parseInt(maxSeats, 10) || 0,
-      join_code: joinCode
+      join_code: joinCode,
+      vehicle_id: vehicleId || null
     };
 
     if (routeId) {
@@ -39,7 +40,7 @@ export const createSystem = async (req, res) => {
     if (error) {
       console.log('Error from Supabase createSystem:', error);
       if (error.code === '23505') {
-        return res.status(409).json({ message: "This plate number is already registered to another system." });
+        return res.status(409).json({ message: "A system with this information (Join Code or similar) already exists." });
       }
       return res.status(500).json({ message: "Database Error: " + error.message });
     }
@@ -95,6 +96,24 @@ export const getSystemById = async (req, res) => {
         .eq('id', system.route_id)
         .single();
       if (routeData) system.routes = routeData;
+    }
+
+    // 2a. Fetch Driver info
+    const { data: driverData } = await supabase
+      .from('users')
+      .select('name, phone, license_number')
+      .eq('id', system.driver_id)
+      .single();
+    if (driverData) system.driver = driverData;
+
+    // 2b. Fetch Vehicle info
+    if (system.vehicle_id) {
+      const { data: vData } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('id', system.vehicle_id)
+        .single();
+      if (vData) system.vehicle = vData;
     }
 
     // 3. Safely Fetch attendant if exists

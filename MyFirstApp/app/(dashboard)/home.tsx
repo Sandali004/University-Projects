@@ -28,6 +28,8 @@ export default function DashboardHomeScreen() {
   const [isJoinModalVisible, setIsJoinModalVisible] = useState(false);
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [vehicles, setVehicles] = useState<any[]>([]);
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null);
   const [systemForm, setSystemForm] = useState({ name: '', plateNumber: '', vehicleType: 'Van', maxSeats: '15' });
 
   useFocusEffect(
@@ -80,11 +82,21 @@ export default function DashboardHomeScreen() {
       setUserName(currentName);
       if (currentId) {
         fetchSystems(currentRole, currentId);
+        if (currentRole === 'Driver') fetchVehicles(currentId);
       } else {
         setLoading(false);
       }
     } catch (error) {
       setLoading(false);
+    }
+  };
+
+  const fetchVehicles = async (id: string) => {
+    try {
+      const response = await api.get(`/vehicle/driver/${id}`);
+      setVehicles(response.data.vehicles || []);
+    } catch (error) {
+      console.log('Error fetching vehicles');
     }
   };
 
@@ -141,10 +153,15 @@ export default function DashboardHomeScreen() {
       return;
     }
     try {
-      await api.post('/system/create', { ...systemForm, driverId: userId });
+      await api.post('/system/create', { 
+        ...systemForm, 
+        driverId: userId,
+        vehicleId: selectedVehicle?.id 
+      });
       Alert.alert('Success', 'System created successfully!');
       setIsCreateModalVisible(false);
       setSystemForm({ name: '', plateNumber: '', vehicleType: 'Van', maxSeats: '15' });
+      setSelectedVehicle(null);
       fetchSystems(role, userId);
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.message || 'Could not create system');
@@ -284,6 +301,13 @@ export default function DashboardHomeScreen() {
                 </View>
                 <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>Create System</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => router.push('/vehicles' as any)}>
+                <View style={[styles.iconBox, { backgroundColor: '#F0F9FF', width: 60, height: 60 }]}>
+                  <MaterialCommunityIcons name="bus-school" size={32} color="#0EA5E9" />
+                </View>
+                <Text style={[styles.gridLabel, { color: isDark ? '#CBD5E1' : '#475569', fontSize: 16 }]}>My Vehicles</Text>
+              </TouchableOpacity>
               
               <TouchableOpacity style={[styles.gridItem, { width: '48%' }]} onPress={() => router.push('/notifications' as any)}>
                 <View style={[styles.iconBox, { backgroundColor: '#FEE2E2', width: 60, height: 60 }]}>
@@ -374,20 +398,82 @@ export default function DashboardHomeScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: cardColor }]}>
             <Text style={[styles.modalTitle, { color: textColor }]}>Create New System</Text>
-            <TextInput 
-              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
-              placeholder="System Name"
-              placeholderTextColor="#94A3B8"
-              value={systemForm.name}
-              onChangeText={t => setSystemForm({...systemForm, name: t})}
-            />
-            <TextInput 
-              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
-              placeholder="Plate Number"
-              placeholderTextColor="#94A3B8"
-              value={systemForm.plateNumber}
-              onChangeText={t => setSystemForm({...systemForm, plateNumber: t})}
-            />
+            
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              <Text style={[styles.label, { color: subTextColor, marginTop: 10 }]}>Basic Info</Text>
+              <TextInput 
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                placeholder="System Name"
+                placeholderTextColor="#94A3B8"
+                value={systemForm.name}
+                onChangeText={t => setSystemForm({...systemForm, name: t})}
+              />
+
+              <Text style={[styles.label, { color: subTextColor, marginTop: 10 }]}>Select Vehicle (Optional)</Text>
+              <View style={styles.vehicleSelector}>
+                {vehicles.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                    {vehicles.map(v => (
+                      <TouchableOpacity 
+                        key={v.id}
+                        style={[
+                          styles.vehicleOption, 
+                          selectedVehicle?.id === v.id && styles.vehicleOptionSelected,
+                          { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }
+                        ]}
+                        onPress={() => {
+                          setSelectedVehicle(v);
+                          setSystemForm({
+                            ...systemForm,
+                            plateNumber: v.plate_number,
+                            vehicleType: v.model || 'Van',
+                            maxSeats: String(v.max_seats)
+                          });
+                        }}
+                      >
+                        <MaterialCommunityIcons 
+                          name="bus-school" 
+                          size={20} 
+                          color={selectedVehicle?.id === v.id ? accentColor : '#94A3B8'} 
+                        />
+                        <Text style={[styles.vehicleOptionText, { color: textColor }]}>{v.plate_number}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <TouchableOpacity style={styles.noVehiclesBtn} onPress={() => {
+                    setIsCreateModalVisible(false);
+                    router.push('/vehicles' as any);
+                  }}>
+                    <Text style={{ color: accentColor, fontWeight: 'bold' }}>+ Add vehicles first</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              <Text style={[styles.label, { color: subTextColor, marginTop: 10 }]}>Manual Overrides</Text>
+              <TextInput 
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                placeholder="Plate Number"
+                placeholderTextColor="#94A3B8"
+                value={systemForm.plateNumber}
+                onChangeText={t => setSystemForm({...systemForm, plateNumber: t})}
+              />
+              <TextInput 
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                placeholder="Vehicle Model / Type"
+                placeholderTextColor="#94A3B8"
+                value={systemForm.vehicleType}
+                onChangeText={t => setSystemForm({...systemForm, vehicleType: t})}
+              />
+              <TextInput 
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                placeholder="Max Seats"
+                placeholderTextColor="#94A3B8"
+                keyboardType="numeric"
+                value={systemForm.maxSeats}
+                onChangeText={t => setSystemForm({...systemForm, maxSeats: t})}
+              />
+            </ScrollView>
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsCreateModalVisible(false)}>
                 <Text style={styles.cancelText}>Cancel</Text>
@@ -443,5 +529,11 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F1F5F9' },
   cancelText: { color: '#64748B', fontWeight: 'bold' },
   actionBtn: { flex: 2, height: 55, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
-  actionText: { color: '#fff', fontWeight: 'bold' }
+  actionText: { color: '#fff', fontWeight: 'bold' },
+  label: { fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 8, marginLeft: 5 },
+  vehicleSelector: { marginBottom: 15 },
+  vehicleOption: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 12, marginRight: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: 'transparent' },
+  vehicleOptionSelected: { borderColor: '#3B82F6', backgroundColor: '#EFF6FF' },
+  vehicleOptionText: { fontSize: 13, fontWeight: 'bold' },
+  noVehiclesBtn: { padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: '#3B82F6', alignItems: 'center' }
 });

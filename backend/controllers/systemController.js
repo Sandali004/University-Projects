@@ -787,7 +787,6 @@ export const updateSystemRouteMap = async (req, res) => {
     res.status(500).json({ message: "Error updating route map", error: error.message });
   }
 };
-
 // HELPER: Notify all staff (Driver + Attendants) of a system
 export const notifyStaff = async (systemId, message, type = 'system_update', excludeId = null) => {
   try {

@@ -97,7 +97,6 @@ export const loginParent = async (req, res) => {
       console.warn(`[Backend] Login aborted: Password mismatch for ${identifier}.`);
       return res.status(401).json({ message: "Invalid email or password." });
     }
-
     console.log(`[Backend] Login successful for: ${user.email}`);
 
     const token = jwt.sign(

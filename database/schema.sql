@@ -8,6 +8,8 @@ CREATE TABLE users (
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL CHECK (role IN ('admin', 'driver', 'parent', 'attendant')),
+    phone TEXT,
+    license_number TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -20,7 +22,18 @@ CREATE TABLE routes (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Transportation Systems table (formerly vans)
+-- 3. Vehicles table
+CREATE TABLE vehicles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    driver_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    plate_number TEXT UNIQUE NOT NULL,
+    model TEXT,
+    color TEXT,
+    max_seats INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Transportation Systems table (formerly vans)
 -- This table stores BOTH static van information AND 
 -- the current dynamic live location of the driver.
 CREATE TABLE transportation_systems (
@@ -34,6 +47,14 @@ CREATE TABLE transportation_systems (
     current_lat DECIMAL(10, 8),
     current_lng DECIMAL(11, 8),
     route_id UUID REFERENCES routes(id),
+    vehicle_id UUID REFERENCES vehicles(id),
+    start_lat DECIMAL(10, 8),
+    start_lng DECIMAL(11, 8),
+    start_location_name TEXT,
+    end_lat DECIMAL(10, 8),
+    end_lng DECIMAL(11, 8),
+    end_location_name TEXT,
+    route_polyline TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -52,12 +73,25 @@ CREATE TABLE students (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. System Parents join table
+-- 6. System Parents join table
 CREATE TABLE system_parents (
     system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
     parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    pickup_lat DECIMAL(10, 8),
+    pickup_lng DECIMAL(11, 8),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     PRIMARY KEY (system_id, parent_id)
+);
+
+-- 7. System Attendants join table
+CREATE TABLE system_attendants (
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
+    attendant_id UUID REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    is_present BOOLEAN DEFAULT FALSE,
+    has_control BOOLEAN DEFAULT FALSE,
+    can_view_activities BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (system_id, attendant_id)
 );
 
 -- 6. Attendance table
@@ -71,10 +105,11 @@ CREATE TABLE attendance (
     UNIQUE(student_id, date)
 );
 
--- 7. Notifications table
+-- 9. Notifications table
 CREATE TABLE notifications (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
     type TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()

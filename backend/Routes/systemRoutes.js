@@ -16,7 +16,8 @@ import {
   updateAttendantPresence,
   updateParentPickup,
   updateAttendantControl,
-  updateAttendantActivityAccess
+  updateAttendantActivityAccess,
+  updateSystemRouteMap
 } from "../controllers/systemController.js";
 
 const router = express.Router();
@@ -28,6 +29,7 @@ router.get("/routes", getRoutes);
 router.post("/create", createSystem);
 router.get("/driver/:driverId", getDriverSystems);
 router.get("/:systemId", getSystemById);
+router.put('/:systemId/route-map', updateSystemRouteMap);
 router.put("/:systemId/route", updateSystemRoute);
 router.get("/:systemId/parents", getSystemParents);
 router.delete("/:systemId/parents/:parentId", removeParent);

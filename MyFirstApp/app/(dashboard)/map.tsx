@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity,
   Alert, ActivityIndicator, SafeAreaView, StatusBar, Dimensions
 } from 'react-native';
-import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Callout, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
@@ -40,6 +40,7 @@ export default function MapScreen() {
   const [tempPickup, setTempPickup] = useState<any>(null); // Temporary point when picking a spot
   const [isSettingLocation, setIsSettingLocation] = useState(false);
   const [savingPickup, setSavingPickup] = useState(false);
+  const [routePath, setRoutePath] = useState<any[]>([]);
 
   // Refs (Variables that persist without triggering re-renders)
   const mapRef = useRef<MapView>(null);
@@ -89,10 +90,20 @@ export default function MapScreen() {
       setRole(currentRole);
       setUserId(currentId);
 
-      // FETCHING SYSTEM DETAILS:
       // We send the systemId to the API to get information about this specific van system.
       const response = await api.get(`/system/${systemId}`);
-      setSystem(response.data.system);
+      const systemData = response.data.system;
+      setSystem(systemData);
+
+      // Parse the planned route if it exists
+      if (systemData.route_polyline) {
+        try {
+          const path = JSON.parse(systemData.route_polyline);
+          setRoutePath(path);
+        } catch (e) {
+          console.error("Error parsing route polyline:", e);
+        }
+      }
 
       if (currentRole === 'Driver' || currentRole === 'Attendant') {
         // Drivers need to see where all the parents (students) are waiting
@@ -357,6 +368,36 @@ export default function MapScreen() {
             </Callout>
           </Marker>
         ))}
+
+        {/* PLANNED ROUTE: Showing the fixed path the driver should follow */}
+        {routePath.length > 0 && (
+          <>
+            <Polyline
+              coordinates={routePath}
+              strokeWidth={3}
+              strokeColor="rgba(59, 130, 246, 0.6)" // semi-transparent blue
+              lineDashPattern={[5, 5]}
+            />
+            {/* Start Marker */}
+            {system?.start_lat && (
+              <Marker 
+                coordinate={{ latitude: parseFloat(system.start_lat), longitude: parseFloat(system.start_lng) }}
+                title="Route Start"
+              >
+                <View style={[styles.routePoint, { backgroundColor: '#3B82F6' }]} />
+              </Marker>
+            )}
+            {/* End Marker */}
+            {system?.end_lat && (
+              <Marker 
+                coordinate={{ latitude: parseFloat(system.end_lat), longitude: parseFloat(system.end_lng) }}
+                title="Route End"
+              >
+                <View style={[styles.routePoint, { backgroundColor: '#EF4444' }]} />
+              </Marker>
+            )}
+          </>
+        )}
       </MapView>
 
       {/* Dynamic Overlay */}
@@ -442,5 +483,6 @@ const styles = StyleSheet.create({
   infoCardText: { fontWeight: 'bold', color: '#1E293B' },
   callout: { padding: 10, minWidth: 150 },
   calloutTitle: { fontWeight: 'bold', fontSize: 14 },
-  calloutSub: { fontSize: 12, color: '#64748B' }
+  calloutSub: { fontSize: 12, color: '#64748B' },
+  routePoint: { width: 12, height: 12, borderRadius: 6, borderWidth: 2, borderColor: '#fff' }
 });

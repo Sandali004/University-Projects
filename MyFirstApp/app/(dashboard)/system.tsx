@@ -378,6 +378,20 @@ export default function SystemScreen() {
               Route: {system.routes?.name || 'Standard Route'}
             </Text>
           </View>
+
+          {/* MANAGE ROUTE MAP (Driver Only) */}
+          {isDriver && (
+            <TouchableOpacity 
+              style={[styles.manageRouteBtn, { backgroundColor: accentColor + '10', borderColor: accentColor }]}
+              onPress={() => router.push({ pathname: '/route-picker', params: { systemId: system.id } })}
+            >
+              <MaterialCommunityIcons name="map-marker-path" size={20} color={accentColor} />
+              <Text style={[styles.manageRouteBtnText, { color: accentColor }]}>
+                {system.start_lat ? 'Edit Route Map' : 'Setup Route Map'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
           {isDriver && (
             <View style={styles.joinCodeBox}>
               <Text style={styles.joinCodeLabel}>Join Code for Parents:</Text>
@@ -569,7 +583,45 @@ export default function SystemScreen() {
                     </View>
                   </Marker>
                 )}
+                {system.start_lat && (
+                  <Marker 
+                    coordinate={{ latitude: parseFloat(system.start_lat), longitude: parseFloat(system.start_lng) }}
+                    title="Start: {system.start_location_name}"
+                    pinColor="#3B82F6"
+                  />
+                )}
+                {system.end_lat && (
+                  <Marker 
+                    coordinate={{ latitude: parseFloat(system.end_lat), longitude: parseFloat(system.end_lng) }}
+                    title="End: {system.end_location_name}"
+                    pinColor="#EF4444"
+                  />
+                )}
               </MapView>
+            </View>
+          </View>
+        )}
+
+        {/* ROUTE INFO CARD (Visible if set) */}
+        {system.start_lat && (
+          <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
+            <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Route Points</Text>
+            <View style={styles.routeSummary}>
+              <View style={styles.routePoint}>
+                <View style={[styles.routeDot, { backgroundColor: '#3B82F6' }]} />
+                <View>
+                  <Text style={styles.routePointLabel}>START</Text>
+                  <Text style={[styles.routePointValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.start_location_name}</Text>
+                </View>
+              </View>
+              <View style={styles.routeLine} />
+              <View style={styles.routePoint}>
+                <View style={[styles.routeDot, { backgroundColor: '#EF4444' }]} />
+                <View>
+                  <Text style={styles.routePointLabel}>END</Text>
+                  <Text style={[styles.routePointValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.end_location_name}</Text>
+                </View>
+              </View>
             </View>
           </View>
         )}
@@ -945,5 +997,14 @@ const styles = StyleSheet.create({
   controlStatusText: { fontSize: 13, fontWeight: '600', lineHeight: 18, textAlign: 'center' },
   removeParentBtnSmall: { padding: 10 },
   leaveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 15, borderRadius: 20, borderWidth: 1, marginTop: 20 },
-  leaveBtnText: { fontWeight: 'bold', fontSize: 14, color: '#EF4444' }
+  leaveBtnText: { fontWeight: 'bold', fontSize: 14, color: '#EF4444' },
+  // New Styles
+  manageRouteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 15 },
+  manageRouteBtnText: { fontWeight: 'bold', fontSize: 13 },
+  routeSummary: { marginLeft: 10 },
+  routePoint: { flexDirection: 'row', alignItems: 'center', gap: 15 },
+  routeDot: { width: 10, height: 10, borderRadius: 5 },
+  routePointLabel: { fontSize: 10, color: '#94A3B8', fontWeight: 'bold' },
+  routePointValue: { fontSize: 14, fontWeight: 'bold' },
+  routeLine: { width: 2, height: 20, backgroundColor: '#E2E8F0', marginLeft: 4, marginVertical: 4 }
 });

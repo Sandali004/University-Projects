@@ -146,6 +146,15 @@ export const getSystemById = async (req, res) => {
       console.error("[getSystemById] Error fetching attendant:", attError.message);
     }
 
+    // 4. Added: Pass through manual route details
+    system.start_lat = system.start_lat;
+    system.start_lng = system.start_lng;
+    system.end_lat = system.end_lat;
+    system.end_lng = system.end_lng;
+    system.start_location_name = system.start_location_name;
+    system.end_location_name = system.end_location_name;
+    system.route_polyline = system.route_polyline;
+
     res.status(200).json({ system });
   } catch (error) {
     console.error("[getSystemById] Internal Error:", error);
@@ -679,6 +688,62 @@ export const updateAttendantActivityAccess = async (req, res) => {
   } catch (error) {
     console.error("[updateAttendantActivityAccess] Error:", error);
     res.status(500).json({ message: "Error updating activity access", error: error.message });
+  }
+};
+
+// Function: Update system route details (Manual Selection)
+export const updateSystemRouteMap = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+    const { 
+      startLat, startLng, startName, 
+      endLat, endLng, endName, 
+      routeName, 
+      routePolyline 
+    } = req.body;
+
+    if (!startLat || !endLat) {
+      return res.status(400).json({ message: "Start and End coordinates are required." });
+    }
+
+    // 1. Create a formal route in 'routes' table
+    const finalRouteName = routeName || `${startName || 'Start'} to ${endName || 'End'}`;
+    
+    const { data: routeData, error: routeError } = await supabase
+      .from('routes')
+      .insert([{ name: finalRouteName }])
+      .select()
+      .single();
+
+    if (routeError) throw routeError;
+
+    // 2. Update transportation system with coordinates AND the new route_id
+    const { data: systemData, error: systemError } = await supabase
+      .from('transportation_systems')
+      .update({
+        start_lat: startLat,
+        start_lng: startLng,
+        start_location_name: startName,
+        end_lat: endLat,
+        end_lng: endLng,
+        end_location_name: endName,
+        route_polyline: routePolyline,
+        route_id: routeData.id, // Formalizing the link
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', systemId)
+      .select()
+      .single();
+
+    if (systemError) throw systemError;
+
+    // 3. Notify parents of the route change
+    await notifyParents(systemId, `The route for system "${systemData.name}" has been updated to "${finalRouteName}".`, 'route_updated');
+
+    res.status(200).json({ message: "Route map and system route updated successfully.", system: systemData });
+  } catch (error) {
+    console.error("[updateSystemRouteMap] Error:", error);
+    res.status(500).json({ message: "Error updating route map", error: error.message });
   }
 };
 

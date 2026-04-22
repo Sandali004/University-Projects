@@ -1064,10 +1064,7 @@ const styles = StyleSheet.create({
   studentSub: { fontSize: 12, color: '#94A3B8', marginTop: 2 },
   studentLoc: { fontSize: 11, color: '#64748B', marginTop: 1 },
   emptyText: { textAlign: 'center', color: '#94A3B8', marginTop: 10, fontStyle: 'italic' },
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7a481ac1 (Vehicle Management & Parent Transparency Implementation: Multi-system support, standalone vehicle fleet, and enhanced staff details.)
+
   detailSubValue: { fontSize: 12, color: '#64748B' },
   detailsList: { marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(148, 163, 184, 0.1)' },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, gap: 12 },
@@ -1075,11 +1072,7 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: 10, fontWeight: 'bold', color: '#94A3B8', textTransform: 'uppercase', marginBottom: 2 },
   detailValue: { fontSize: 14, fontWeight: 'bold' },
   detailCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 16, backgroundColor: 'rgba(148, 163, 184, 0.1)' },
-<<<<<<< HEAD
-=======
->>>>>>> fab5d304 (feat: implement separate attendant activity permission, fix driver UI visibility and backend lookup resilience)
-=======
->>>>>>> 7a481ac1 (Vehicle Management & Parent Transparency Implementation: Multi-system support, standalone vehicle fleet, and enhanced staff details.)
+
   lockedSection: { alignItems: 'center', padding: 20, gap: 8 },
   lockedText: { color: '#94A3B8', fontSize: 13, fontStyle: 'italic' },
   mainActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, height: 60, borderRadius: 20, marginTop: 20 },
@@ -1112,19 +1105,8 @@ const styles = StyleSheet.create({
   detailName: { fontSize: 22, fontWeight: 'bold' },
   detailSub: { fontSize: 14, color: '#94A3B8', marginTop: 4 },
   detailSection: { marginBottom: 25 },
-<<<<<<< HEAD
-<<<<<<< HEAD
   detailLabelLarge: { fontSize: 13, fontWeight: 'bold', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
   detailValueLarge: { fontSize: 16, fontWeight: '600' },
-=======
-  detailLabel: { fontSize: 13, fontWeight: 'bold', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  detailCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 16, backgroundColor: 'rgba(148, 163, 184, 0.1)' },
-  detailValue: { fontSize: 16, fontWeight: '600' },
->>>>>>> fab5d304 (feat: implement separate attendant activity permission, fix driver UI visibility and backend lookup resilience)
-=======
-  detailLabelLarge: { fontSize: 13, fontWeight: 'bold', color: '#94A3B8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 1 },
-  detailValueLarge: { fontSize: 16, fontWeight: '600' },
->>>>>>> 7a481ac1 (Vehicle Management & Parent Transparency Implementation: Multi-system support, standalone vehicle fleet, and enhanced staff details.)
   actionGrid: { flexDirection: 'row', gap: 12 },
   actionBtnSmall: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 15, borderRadius: 16, borderWidth: 1 },
   actionBtnText: { fontSize: 13, fontWeight: 'bold' },
@@ -1160,7 +1142,6 @@ const styles = StyleSheet.create({
   controlStatusText: { fontSize: 13, fontWeight: '600', lineHeight: 18, textAlign: 'center' },
   removeParentBtnSmall: { padding: 10 },
   leaveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 15, borderRadius: 20, borderWidth: 1, marginTop: 20 },
-<<<<<<< HEAD
   leaveBtnText: { fontWeight: 'bold', fontSize: 14, color: '#EF4444' },
   // New Styles
   manageRouteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 15 },
@@ -1177,7 +1158,4 @@ const styles = StyleSheet.create({
   deleteSystemBtnText: { fontWeight: 'bold', fontSize: 14, color: '#EF4444' },
   setPickupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: 'rgba(148,163,184,0.1)' },
   setPickupBtnText: { fontSize: 13, fontWeight: '600' }
-=======
-  leaveBtnText: { fontWeight: 'bold', fontSize: 14, color: '#EF4444' }
->>>>>>> fab5d304 (feat: implement separate attendant activity permission, fix driver UI visibility and backend lookup resilience)
 });

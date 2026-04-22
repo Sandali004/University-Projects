@@ -12,14 +12,8 @@ interface Question {
 
 const questions: Question[] = [
   { id: 'name', type: 'text', question: 'Hello! I am here to help you register. What is your full name?' },
-  { id: 'phone', type: 'phone', question: 'Nice to meet you! What is your phone number?' },
   { id: 'email', type: 'email', question: 'What is your email address?' },
   { id: 'password', type: 'password', question: 'Please create a strong password.' },
-  { id: 'licenseNumber', type: 'text', question: 'What is your driving license number?' },
-  { id: 'vehicleType', type: 'choice', question: 'What type of vehicle do you drive?', options: ['Car', 'Van', 'Bus'] },
-  { id: 'vehicleNumber', type: 'text', question: 'What is your vehicle registration number?' },
-  { id: 'seatCount', type: 'number', question: 'How many passenger seats are in your vehicle?' },
-  { id: 'route', type: 'text', question: 'Almost done! What is your primary route? (e.g., Colombo - Kandy)' },
 ];
 
 export default function RegisterScreen() {
@@ -43,26 +37,7 @@ export default function RegisterScreen() {
     const currentQ = questions[currentStep];
 
     // Basic Validation for seats
-    if (currentQ.id === 'seatCount') {
-      const seats = parseInt(value, 10);
-      const { vehicleType } = formData;
-      if (isNaN(seats)) {
-        Alert.alert('Invalid', 'Please enter a valid number.');
-        return;
-      }
-      if (vehicleType === 'Car' && (seats < 4 || seats > 6)) {
-        Alert.alert('Invalid', 'Car seats must be between 4 and 6.');
-        return;
-      }
-      if (vehicleType === 'Van' && (seats < 8 || seats > 15)) {
-        Alert.alert('Invalid', 'Van seats must be between 8 and 15.');
-        return;
-      }
-      if (vehicleType === 'Bus' && (seats < 20 || seats > 50)) {
-        Alert.alert('Invalid', 'Bus seats must be between 20 and 50.');
-        return;
-      }
-    }
+    // (Removed since seatCount is no longer asked)
 
     // Add user message
     const newMessages = [...messages, { id: Date.now().toString(), sender: 'user', text: value }];
@@ -140,7 +115,8 @@ export default function RegisterScreen() {
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 80}
     >
       <View style={styles.header}>
         <Text style={styles.title}>Register Driver</Text>

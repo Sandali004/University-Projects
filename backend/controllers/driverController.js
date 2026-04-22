@@ -79,25 +79,31 @@ export const loginDriver = async (req, res) => {
       return res.status(400).json({ message: "Please provide your email and password." });
     }
 
-    // Find user by email AND role = 'driver'
-    console.log(`[Backend] Attempting login for identifier: ${identifier} (role: driver)`);
+    // Find user by email ONLY first (to diagnose role mismatch better)
+    console.log(`[Backend] Attempting login for identifier: ${identifier}`);
     const { data: user, error } = await supabase
       .from("users")
       .select("*")
       .eq("email", identifier)
-      .eq("role", "driver")
       .single();
 
     if (error || !user) {
-      console.warn(`[Backend] Login failed: User not found or error occurred for ${identifier}. Error:`, error?.message || "User not found");
+      console.warn(`[Backend] Login aborted: Email not found for ${identifier}.`);
       return res.status(401).json({ message: "Invalid email or password." });
     }
 
-    console.log(`[Backend] User found: ${user.email}. Comparing passwords...`);
+    // Role verification
+    if (user.role !== "driver") {
+      console.warn(`[Backend] Login aborted: Role mismatch for ${identifier}. Expected 'driver', found '${user.role}'.`);
+      return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    console.log(`[Backend] User found: ${user.email} (Role: ${user.role}). Comparing passwords...`);
+
     // Compare passwords
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      console.warn(`[Backend] Login failed: Password mismatch for ${identifier}.`);
+      console.warn(`[Backend] Login aborted: Password mismatch for ${identifier}.`);
       return res.status(401).json({ message: "Invalid email or password." });
     }
 

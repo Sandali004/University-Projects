@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import MapView, { Marker } from 'react-native-maps';
+import * as Clipboard from 'expo-clipboard';
 import { supabase } from '../../services/supabase';
 import api from '../../services/api';
 
@@ -27,6 +28,8 @@ export default function SystemScreen() {
   const [isStudentModalVisible, setIsStudentModalVisible] = useState(false);
   const [studentActivities, setStudentActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSetPickupModalVisible, setIsSetPickupModalVisible] = useState(false);
 
   // Tracking state (for Parent)
   const [vanLocation, setVanLocation] = useState<any>(null);
@@ -68,7 +71,7 @@ export default function SystemScreen() {
 
       setRole(currentRole);
       setUserId(currentId);
-      await fetchSystemDetails();
+      await fetchSystemDetails(currentRole, currentId);
     } catch (error) {
       console.log('Error loading initial data', error);
     } finally {
@@ -76,18 +79,21 @@ export default function SystemScreen() {
     }
   };
 
-  const fetchSystemDetails = async () => {
+  const fetchSystemDetails = async (cRole?: string, cId?: string) => {
     try {
+      const activeRole = cRole || role;
+      const activeId = cId || userId;
+
       const response = await api.get(`/system/${systemId}`);
       const data = response.data.system;
       setSystem(data);
 
       if (data) {
         fetchSystemStudents(data.id);
-        if (role === 'Driver') fetchSystemParents(data.id);
+        if (activeRole === 'Driver' || activeRole === 'Attendant') fetchSystemParents(data.id);
         
         // Setup tracking for parents
-        if (role === 'Parent' && data.driver_id) {
+        if (activeRole === 'Parent' && data.driver_id) {
           startTracking(data.driver_id);
         }
       }
@@ -173,6 +179,51 @@ export default function SystemScreen() {
     setSelectedChildren(prev => 
       prev.includes(id) ? prev.filter(cid => cid !== id) : [...prev, id]
     );
+  };
+
+  const handleCopyJoinCode = async () => {
+    if (!system?.join_code) return;
+    await Clipboard.setStringAsync(system.join_code);
+    Alert.alert('Copied', 'Join code copied to clipboard!');
+  };
+
+  const handleDeleteSystem = async () => {
+    Alert.alert(
+      "Delete System",
+      "Are you sure you want to PERMANENTLY delete this transportation system? This will remove all parent and student links.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Delete", 
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setIsDeleting(true);
+              await api.delete(`/system/${systemId}`);
+              Alert.alert('Success', 'System deleted successfully');
+              router.replace('/home' as any);
+            } catch (error) {
+              Alert.alert('Error', 'Could not delete system');
+              setIsDeleting(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleSetPickupLocation = async (lat: number, lng: number) => {
+    try {
+      setLoading(true);
+      await api.put(`/system/${systemId}/parent/${userId}/pickup`, { lat, lng });
+      Alert.alert('Success', 'Pickup location updated!');
+      setIsSetPickupModalVisible(false);
+      fetchSystemDetails();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update pickup location');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const startTracking = (driverId: string) => {
@@ -394,49 +445,56 @@ export default function SystemScreen() {
 
           {isDriver && (
             <View style={styles.joinCodeBox}>
-              <Text style={styles.joinCodeLabel}>Join Code for Parents:</Text>
-              <Text style={[styles.joinCodeText, { color: accentColor }]}>{system.join_code}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.joinCodeLabel}>Join Code for Parents:</Text>
+                <Text style={[styles.joinCodeText, { color: accentColor }]}>{system.join_code}</Text>
+              </View>
+              <TouchableOpacity 
+                style={[styles.copyBtn, { backgroundColor: accentColor + '20' }]} 
+                onPress={handleCopyJoinCode}
+              >
+                <Ionicons name="copy-outline" size={20} color={accentColor} />
+                <Text style={[styles.copyBtnText, { color: accentColor }]}>Copy</Text>
+              </TouchableOpacity>
             </View>
           )}
 
-          {/* DRIVER & VEHICLE DETAILS (For Parents/Attendants) */}
-          {(isParent || isAttendant) && (
-            <View style={styles.detailsList}>
-              <View style={styles.detailRow}>
-                <Ionicons name="person" size={18} color={accentColor} />
-                <View style={styles.detailTextCol}>
-                  <Text style={styles.detailLabel}>Driver</Text>
-                  <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.driver?.name || 'N/A'}</Text>
-                  {system.driver?.phone && <Text style={styles.detailSubValue}>{system.driver.phone}</Text>}
-                </View>
+          {/* DRIVER & VEHICLE DETAILS (For All Roles) */}
+          <View style={styles.detailsList}>
+            <View style={styles.detailRow}>
+              <Ionicons name="person" size={18} color={accentColor} />
+              <View style={styles.detailTextCol}>
+                <Text style={styles.detailLabel}>Driver</Text>
+                <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.driver?.name || 'N/A'}</Text>
+                {system.driver?.phone && <Text style={styles.detailSubValue}>{system.driver.phone}</Text>}
               </View>
-
-              <View style={styles.detailRow}>
-                <Ionicons name="bus" size={18} color={accentColor} />
-                <View style={styles.detailTextCol}>
-                  <Text style={styles.detailLabel}>Vehicle</Text>
-                  <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
-                    {system.vehicle?.plate_number || system.plate_number}
-                  </Text>
-                  <Text style={styles.detailSubValue}>
-                    {system.vehicle?.model || system.vehicle_type} 
-                    {system.vehicle?.color ? ` • ${system.vehicle.color}` : ''}
-                  </Text>
-                </View>
-              </View>
-
-              {system.attendant && (
-                <View style={[styles.detailRow, { marginTop: 15 }]}>
-                  <Ionicons name="id-card" size={18} color={accentColor} />
-                  <View style={styles.detailTextCol}>
-                    <Text style={styles.detailLabel}>Attendant</Text>
-                    <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.attendant.name}</Text>
-                    <Text style={styles.detailSubValue}>{system.attendant.email}</Text>
-                  </View>
-                </View>
-              )}
             </View>
-          )}
+
+            <View style={styles.detailRow}>
+              <Ionicons name="bus" size={18} color={accentColor} />
+              <View style={styles.detailTextCol}>
+                <Text style={styles.detailLabel}>Vehicle</Text>
+                <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+                  {system.vehicle?.plate_number || system.plate_number}
+                </Text>
+                <Text style={styles.detailSubValue}>
+                  {system.vehicle?.model || system.vehicle_type} 
+                  {system.vehicle?.color ? ` • ${system.vehicle.color}` : ''}
+                </Text>
+              </View>
+            </View>
+
+            {system.attendant && (
+              <View style={[styles.detailRow, { marginTop: 15 }]}>
+                <Ionicons name="id-card" size={18} color={accentColor} />
+                <View style={styles.detailTextCol}>
+                  <Text style={styles.detailLabel}>Attendant</Text>
+                  <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.attendant.name}</Text>
+                  <Text style={styles.detailSubValue}>{system.attendant.email}</Text>
+                </View>
+              </View>
+            )}
+          </View>
         </View>
         
         {/* ATTENDANT MANAGEMENT (Driver Only) */}
@@ -583,6 +641,16 @@ export default function SystemScreen() {
                     </View>
                   </Marker>
                 )}
+                {parents.find(p => p.parent_id === userId)?.pickup_lat && (
+                   <Marker 
+                    coordinate={{ 
+                      latitude: parseFloat(parents.find(p => p.parent_id === userId).pickup_lat), 
+                      longitude: parseFloat(parents.find(p => p.parent_id === userId).pickup_lng) 
+                    }}
+                    title="My Pickup Location"
+                    pinColor="#10B981"
+                   />
+                )}
                 {system.start_lat && (
                   <Marker 
                     coordinate={{ latitude: parseFloat(system.start_lat), longitude: parseFloat(system.start_lng) }}
@@ -599,6 +667,15 @@ export default function SystemScreen() {
                 )}
               </MapView>
             </View>
+            <TouchableOpacity 
+              style={[styles.setPickupBtn, { backgroundColor: theme === 'dark' ? '#334155' : '#F1F5F9' }]}
+              onPress={() => setIsSetPickupModalVisible(true)}
+            >
+              <Ionicons name="location" size={18} color={accentColor} />
+              <Text style={[styles.setPickupBtnText, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+                {parents.find(p => p.parent_id === userId)?.pickup_lat ? 'Change My Pickup Location' : 'Set My Pickup Location'}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -707,6 +784,23 @@ export default function SystemScreen() {
           >
             <Ionicons name="navigate" size={24} color="#fff" />
             <Text style={styles.mainActionBtnText}>Enter Tracking Mode</Text>
+          </TouchableOpacity>
+        )}
+
+        {isDriver && (
+          <TouchableOpacity 
+            style={[styles.deleteSystemBtn, { borderColor: '#EF4444' }]} 
+            onPress={handleDeleteSystem}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <ActivityIndicator size="small" color="#EF4444" />
+            ) : (
+              <>
+                <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                <Text style={styles.deleteSystemBtnText}>Delete This System</Text>
+              </>
+            )}
           </TouchableOpacity>
         )}
 
@@ -872,6 +966,55 @@ export default function SystemScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* SET PICKUP LOCATION MODAL */}
+      <Modal visible={isSetPickupModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff', height: '70%' }]}>
+            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Set Pickup Location</Text>
+            <Text style={styles.modalSub}>Long-press on the map or drag the marker to set your pickup location for this van.</Text>
+            
+            <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden', marginVertical: 10 }}>
+              <MapView
+                style={styles.map}
+                initialRegion={{
+                  latitude: vanLocation?.latitude || 6.9271,
+                  longitude: vanLocation?.longitude || 79.8612,
+                  latitudeDelta: 0.05,
+                  longitudeDelta: 0.05
+                }}
+                onLongPress={(e) => {
+                  const { latitude, longitude } = e.nativeEvent.coordinate;
+                  Alert.alert("Set Location", "Confirm this as your pickup location?", [
+                    { text: "Cancel", style: "cancel" },
+                    { text: "Set Location", onPress: () => handleSetPickupLocation(latitude, longitude) }
+                  ]);
+                }}
+              >
+                {parents.find(p => p.parent_id === userId)?.pickup_lat && (
+                  <Marker 
+                    draggable
+                    coordinate={{ 
+                      latitude: parseFloat(parents.find(p => p.parent_id === userId).pickup_lat), 
+                      longitude: parseFloat(parents.find(p => p.parent_id === userId).pickup_lng) 
+                    }}
+                    onDragEnd={(e) => {
+                      const { latitude, longitude } = e.nativeEvent.coordinate;
+                      handleSetPickupLocation(latitude, longitude);
+                    }}
+                  />
+                )}
+              </MapView>
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setIsSetPickupModalVisible(false)}>
+                <Text style={styles.cancelLink}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1006,5 +1149,11 @@ const styles = StyleSheet.create({
   routeDot: { width: 10, height: 10, borderRadius: 5 },
   routePointLabel: { fontSize: 10, color: '#94A3B8', fontWeight: 'bold' },
   routePointValue: { fontSize: 14, fontWeight: 'bold' },
-  routeLine: { width: 2, height: 20, backgroundColor: '#E2E8F0', marginLeft: 4, marginVertical: 4 }
+  routeLine: { width: 2, height: 20, backgroundColor: '#E2E8F0', marginLeft: 4, marginVertical: 4 },
+  copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12 },
+  copyBtnText: { fontSize: 13, fontWeight: 'bold' },
+  deleteSystemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 15, borderRadius: 20, borderWidth: 1, marginTop: 15, marginBottom: 20 },
+  deleteSystemBtnText: { fontWeight: 'bold', fontSize: 14, color: '#EF4444' },
+  setPickupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderTopWidth: 1, borderTopColor: 'rgba(148,163,184,0.1)' },
+  setPickupBtnText: { fontSize: 13, fontWeight: '600' }
 });

@@ -19,13 +19,8 @@ interface Question {
 // All attendant registration questions
 const questions: Question[] = [
   { id: 'name',             type: 'text',     text: "Hello! Let's get you registered as an Attendant. What is your full name?" },
-  { id: 'username',         type: 'text',     text: 'Choose a username (e.g. sara_attendant).' },
-  { id: 'phone',            type: 'phone',    text: 'What is your phone number?' },
   { id: 'email',            type: 'email',    text: 'What is your email address?' },
   { id: 'password',         type: 'password', text: 'Please enter a secure password (min 6 characters).' },
-  { id: 'nicNumber',        type: 'text',     text: 'What is your NIC number?' },
-  { id: 'assignedVehicle',  type: 'text',     text: 'What vehicle are you assigned to? (Enter vehicle number)' },
-  { id: 'emergencyContact', type: 'phone',    text: 'Finally, what is your emergency contact number?' },
 ];
 
 export default function AttendantRegistration() {
@@ -114,7 +109,7 @@ export default function AttendantRegistration() {
   const currentQ = questions[currentStep];
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 80}>
       <FlatList
         ref={flatListRef}
         data={messages}

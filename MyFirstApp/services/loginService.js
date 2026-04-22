@@ -5,10 +5,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * loginHelper (internal)
  * Makes the actual API call and saves the session data.
  */
-async function loginHelper(endpoint, email, password, tokenKey, dataKey) {
+async function loginHelper(endpoint, email, password, tokenKey, dataKey, expectedRole) {
   try {
-    const response = await api.post(endpoint, { email, password });
+    // Use the unified auth endpoint instead of role-specific ones
+    const response = await api.post('/auth/login', { email, password });
     const { token, user, message } = response.data;
+
+    // Optional: Verify role if the specific login screen expects one
+    if (expectedRole && user.role !== expectedRole) {
+      console.warn(`[loginService] Role mismatch: Expected ${expectedRole}, got ${user.role}`);
+      return { 
+        success: false, 
+        message: `This account is registered as a ${user.role}. Please use the correct login portal.` 
+      };
+    }
 
     // Clear all previous sessions to prevent role confusion
     await AsyncStorage.removeItem('driverToken');
@@ -47,7 +57,7 @@ async function loginHelper(endpoint, email, password, tokenKey, dataKey) {
 // loginDriver
 // ─────────────────────────────────────────────────────────
 export async function loginDriver(email, password) {
-  const result = await loginHelper('/driver/login', email, password, 'driverToken', 'driverData');
+  const result = await loginHelper('/driver/login', email, password, 'driverToken', 'driverData', 'driver');
   return result.success 
     ? { success: true, driver: result.user } 
     : result;
@@ -56,7 +66,7 @@ export async function loginDriver(email, password) {
 // loginParent
 
 export async function loginParent(email, password) {
-  const result = await loginHelper('/parent/login', email, password, 'parentToken', 'parentData');
+  const result = await loginHelper('/parent/login', email, password, 'parentToken', 'parentData', 'parent');
   return result.success 
     ? { success: true, parent: result.user } 
     : result;
@@ -65,7 +75,7 @@ export async function loginParent(email, password) {
 // loginAttendant
 
 export async function loginAttendant(email, password) {
-  const result = await loginHelper('/attendant/login', email, password, 'attendantToken', 'attendantData');
+  const result = await loginHelper('/attendant/login', email, password, 'attendantToken', 'attendantData', 'attendant');
   return result.success 
     ? { success: true, attendant: result.user } 
     : result;

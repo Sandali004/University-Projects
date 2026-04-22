@@ -18,15 +18,8 @@ interface Question {
 // All parent registration questions
 const questions: Question[] = [
   { id: 'name',             type: 'text',     text: "Hello! Let's get you registered as a Parent. What is your full name?" },
-  { id: 'username',         type: 'text',     text: 'Choose a username (e.g. mary_parent).' },
-  { id: 'phone',            type: 'phone',    text: 'What is your phone number?' },
   { id: 'email',            type: 'email',    text: 'What is your email address?' },
   { id: 'password',         type: 'password', text: 'Please enter a secure password (min 6 characters).' },
-  { id: 'childName',        type: 'text',     text: "What is your child's full name?" },
-  { id: 'childGrade',       type: 'text',     text: "What is your child's grade or class? (e.g. Grade 5)" },
-  { id: 'pickupLocation',   type: 'text',     text: 'What is the pickup location for your child?' },
-  { id: 'dropLocation',     type: 'text',     text: 'What is the drop-off location?' },
-  { id: 'emergencyContact', type: 'phone',    text: 'Finally, what is your emergency contact number?' },
 ];
 
 export default function ParentRegistration() {
@@ -115,7 +108,7 @@ export default function ParentRegistration() {
   const currentQ = questions[currentStep];
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 80}>
       <FlatList
         ref={flatListRef}
         data={messages}

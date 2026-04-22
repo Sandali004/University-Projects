@@ -52,6 +52,47 @@ export const createSystem = async (req, res) => {
   }
 };
 
+// Function: Delete a transportation system
+export const deleteSystem = async (req, res) => {
+  try {
+    const { systemId } = req.params;
+
+    if (!systemId) {
+      return res.status(400).json({ message: "System ID is required." });
+    }
+
+    // 1. Notify parents and staff before deletion (optional but good)
+    try {
+      await notifyParents(systemId, "The transportation system has been disbanded by the driver.", "system_deleted");
+    } catch (notifyErr) {
+      console.log("[deleteSystem] Notification error (ignoring):", notifyErr.message);
+    }
+
+    // 2. Clear system links for students
+    const { error: studentError } = await supabase
+      .from('students')
+      .update({ system_id: null })
+      .eq('system_id', systemId);
+
+    if (studentError) {
+      console.error("[deleteSystem] Error clearing student system links:", studentError);
+    }
+
+    // 3. Delete the system (Cascades should handle system_parents and system_attendants)
+    const { error: deleteError } = await supabase
+      .from('transportation_systems')
+      .delete()
+      .eq('id', systemId);
+
+    if (deleteError) throw deleteError;
+
+    res.status(200).json({ message: "System deleted successfully." });
+  } catch (error) {
+    console.error("[deleteSystem] Error:", error);
+    res.status(500).json({ message: "Error deleting system", error: error.message });
+  }
+};
+
 // Function: Get all systems created by a driver
 export const getDriverSystems = async (req, res) => {
   try {

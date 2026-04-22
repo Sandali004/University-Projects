@@ -21,11 +21,8 @@ interface Question {
 
 const questions: Question[] = [
   { id: 'name', type: 'text', text: 'Hello! Let\'s get you registered as a Driver. What is your full name?' },
-  { id: 'phone', type: 'phone', text: 'Great. What is your phone number?' },
   { id: 'email', type: 'email', text: 'What is your email address?' },
   { id: 'password', type: 'password', text: 'Please enter a secure password.' },
-  { id: 'licenseNumber', type: 'text', text: 'What is your driving license number?' },
-  { id: 'emergencyContact', type: 'phone', text: 'Finally, what is your emergency contact number?' },
 ];
 
 // ── Main Component ──────────────────────────────────────
@@ -126,7 +123,7 @@ export default function DriverRegistration() {
   const currentQ = questions[currentStep];
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.container} behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 80}>
       {/* Chat message list */}
       <FlatList
         ref={flatListRef}

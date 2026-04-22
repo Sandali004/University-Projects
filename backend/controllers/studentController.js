@@ -253,9 +253,70 @@ export const updatePaymentStatus = async (req, res) => {
 
     if (error) throw error;
 
+    // Notify Parent
+    if (data.parent_id) {
+      await supabase.from('notifications').insert([{
+        user_id: data.parent_id,
+        system_id: systemId,
+        message: `Payment status for ${data.name} has been updated to ${paymentStatus}.`,
+        type: 'payment_update'
+      }]);
+    }
+
     res.status(200).json({ message: "Payment status updated successfully", student: data });
   } catch (error) {
     console.error("[updatePaymentStatus] Error:", error);
     res.status(500).json({ message: "Error updating payment status", error: error.message });
+  }
+};
+
+// Send Payment Reminder
+export const sendPaymentReminder = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role, userId, systemId } = req.body;
+
+    // 1. Fetch student and system details
+    const { data: student, error: sError } = await supabase
+      .from('students')
+      .select('*, transportation_systems(name)')
+      .eq('id', id)
+      .single();
+
+    if (sError || !student) {
+      return res.status(404).json({ message: "Student not found." });
+    }
+
+    // 2. Authorization Check
+    if (role === 'Attendant') {
+      const { data: attData } = await supabase
+        .from('system_attendants')
+        .select('can_view_payments')
+        .eq('system_id', systemId)
+        .eq('attendant_id', userId)
+        .single();
+      
+      if (!attData || !attData.can_view_payments) {
+        return res.status(403).json({ message: "You do not have permission to send payment reminders." });
+      }
+    } else if (role !== 'Driver') {
+      return res.status(403).json({ message: "Unauthorized." });
+    }
+
+    // 3. Send Notification to Parent
+    if (student.parent_id) {
+      const systemName = student.transportation_systems?.name || "the transportation system";
+      await supabase.from('notifications').insert([{
+        user_id: student.parent_id,
+        system_id: systemId,
+        message: `Reminder: Payment for ${student.name} is pending in ${systemName}. Please complete it soon.`,
+        type: 'payment_reminder'
+      }]);
+    }
+
+    res.status(200).json({ message: "Payment reminder sent to parent." });
+  } catch (error) {
+    console.error("[sendPaymentReminder] Error:", error);
+    res.status(500).json({ message: "Error sending payment reminder", error: error.message });
   }
 };

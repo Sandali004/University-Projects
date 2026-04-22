@@ -444,6 +444,22 @@ export default function SystemScreen() {
     }
   };
 
+  const handleSendPaymentReminder = async (studentId: string) => {
+    try {
+      setLoading(true);
+      await api.post(`/students/${studentId}/reminder`, { 
+        role,
+        userId,
+        systemId: system.id
+      });
+      Alert.alert('Success', 'Payment reminder sent to parent.');
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Could not send reminder');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading || !system) {
     return (
       <View style={[styles.centered, { backgroundColor: theme === 'dark' ? '#0F172A' : '#FFFFFF' }]}>
@@ -981,6 +997,16 @@ export default function SystemScreen() {
                             onPress={() => handleUpdatePaymentStatus(selectedStudent.id, 'Paid')}
                           >
                             <Text style={styles.markPaidBtnText}>Mark as Paid</Text>
+                          </TouchableOpacity>
+                        )}
+
+                        {/* Send Reminder Button */}
+                        {(selectedStudent.payment_status !== 'Paid') && (isDriver || (isAttendant && system.attendant?.can_view_payments)) && (
+                          <TouchableOpacity 
+                            style={[styles.markPaidBtn, { backgroundColor: '#F59E0B', marginLeft: 8 }]}
+                            onPress={() => handleSendPaymentReminder(selectedStudent.id)}
+                          >
+                            <Text style={styles.markPaidBtnText}>Send Reminder</Text>
                           </TouchableOpacity>
                         )}
                       </View>

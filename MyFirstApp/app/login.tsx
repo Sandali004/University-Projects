@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
   formDesc: { fontSize: 13, color: '#64748B', lineHeight: 20, marginBottom: 25 },
 
   inputGroup: { gap: 15, marginBottom: 25 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', paddingHorizontal: 15 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 20, borderWidth: 1, borderColor: '#F1F5F9', paddingHorizontal: 15 },
   inputIcon: { marginRight: 12 },
   input: { flex: 1, paddingVertical: 18, fontSize: 16, color: '#1E293B', fontWeight: '500' },
 

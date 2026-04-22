@@ -115,9 +115,9 @@ export default function MyChildrenScreen() {
   };
 
   const isDark = theme === 'dark';
-  const bgColor = isDark ? '#0F172A' : '#F8FAFC';
+  const bgColor = isDark ? '#0F172A' : '#FFFFFF';
   const cardColor = isDark ? '#1E293B' : '#FFFFFF';
-  const textColor = isDark ? '#F1F5F9' : '#1E293B';
+  const textColor = isDark ? '#F1F5F9' : '#000000';
   const subTextColor = isDark ? '#94A3B8' : '#64748B';
 
   return (
@@ -194,7 +194,7 @@ export default function MyChildrenScreen() {
             
             <Text style={styles.label}>Full Name</Text>
             <TextInput 
-              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
               value={form.name}
               onChangeText={t => setForm({...form, name: t})}
               placeholder="Enter child's name"
@@ -203,7 +203,7 @@ export default function MyChildrenScreen() {
 
             <Text style={styles.label}>School</Text>
             <TextInput 
-              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
               value={form.school}
               onChangeText={t => setForm({...form, school: t})}
               placeholder="School name"
@@ -214,7 +214,7 @@ export default function MyChildrenScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={styles.label}>Grade</Text>
                 <TextInput 
-                  style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                  style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
                   value={form.grade}
                   onChangeText={t => setForm({...form, grade: t})}
                   placeholder="e.g. 5"
@@ -225,7 +225,7 @@ export default function MyChildrenScreen() {
 
             <Text style={styles.label}>Pickup Location (optional)</Text>
             <TextInput 
-              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
               value={form.pickupLocation}
               onChangeText={t => setForm({...form, pickupLocation: t})}
               placeholder="Home address or landmarks"
@@ -234,7 +234,7 @@ export default function MyChildrenScreen() {
 
             <Text style={styles.label}>Dropoff Location (optional)</Text>
             <TextInput 
-              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
               value={form.dropoffLocation}
               onChangeText={t => setForm({...form, dropoffLocation: t})}
               placeholder="After school dropoff point"

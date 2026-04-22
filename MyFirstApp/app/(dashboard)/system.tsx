@@ -386,7 +386,7 @@ export default function SystemScreen() {
 
   if (loading || !system) {
     return (
-      <View style={[styles.centered, { backgroundColor: theme === 'dark' ? '#0F172A' : '#F8FAFC' }]}>
+      <View style={[styles.centered, { backgroundColor: theme === 'dark' ? '#0F172A' : '#FFFFFF' }]}>
         <ActivityIndicator size="large" color="#3B82F6" />
       </View>
     );
@@ -398,16 +398,16 @@ export default function SystemScreen() {
   const accentColor = isParent ? '#10B981' : isAttendant ? '#8B5CF6' : '#3B82F6';
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme === 'dark' ? '#0F172A' : '#F8FAFC' }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme === 'dark' ? '#0F172A' : '#FFFFFF' }]}>
       <StatusBar barStyle={theme === 'dark' ? 'light-content' : 'dark-content'} />
       
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={theme === 'dark' ? '#fff' : '#1E293B'} />
+          <Ionicons name="arrow-back" size={24} color={theme === 'dark' ? '#fff' : '#000000'} />
         </TouchableOpacity>
         <View style={styles.headerTitleContainer}>
-          <Text style={[styles.headerTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.name}</Text>
+          <Text style={[styles.headerTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{system.name}</Text>
           <Text style={styles.headerSub}>{system.plate_number}</Text>
         </View>
         <View style={styles.headerPlaceholder} />
@@ -465,7 +465,7 @@ export default function SystemScreen() {
               <Ionicons name="person" size={18} color={accentColor} />
               <View style={styles.detailTextCol}>
                 <Text style={styles.detailLabel}>Driver</Text>
-                <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.driver?.name || 'N/A'}</Text>
+                <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{system.driver?.name || 'N/A'}</Text>
                 {system.driver?.phone && <Text style={styles.detailSubValue}>{system.driver.phone}</Text>}
               </View>
             </View>
@@ -474,7 +474,7 @@ export default function SystemScreen() {
               <Ionicons name="bus" size={18} color={accentColor} />
               <View style={styles.detailTextCol}>
                 <Text style={styles.detailLabel}>Vehicle</Text>
-                <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+                <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#000000' }]}>
                   {system.vehicle?.plate_number || system.plate_number}
                 </Text>
                 <Text style={styles.detailSubValue}>
@@ -489,7 +489,7 @@ export default function SystemScreen() {
                 <Ionicons name="id-card" size={18} color={accentColor} />
                 <View style={styles.detailTextCol}>
                   <Text style={styles.detailLabel}>Attendant</Text>
-                  <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.attendant.name}</Text>
+                  <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{system.attendant.name}</Text>
                   <Text style={styles.detailSubValue}>{system.attendant.email}</Text>
                 </View>
               </View>
@@ -501,7 +501,7 @@ export default function SystemScreen() {
         {isDriver && system.attendant && (
           <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
             <View style={styles.cardHeaderSmall}>
-              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B', marginBottom: 0 }]}>Attendant Status</Text>
+              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#000000', marginBottom: 0 }]}>Attendant Status</Text>
               <View style={[styles.presenceBadge, { backgroundColor: system.attendant.is_present ? '#DCFCE7' : '#FEE2E2' }]}>
                 <Text style={[styles.presenceText, { color: system.attendant.is_present ? '#166534' : '#991B1B' }]}>
                   {system.attendant.is_present ? 'PRESENT' : 'NOT PRESENT'}
@@ -510,7 +510,7 @@ export default function SystemScreen() {
             </View>
             <View style={styles.attendantInfoRow}>
               <View style={styles.attendantMain}>
-                <Text style={[styles.attendantNameLabel, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.attendant.name}</Text>
+                <Text style={[styles.attendantNameLabel, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{system.attendant.name}</Text>
                 <Text style={styles.attendantEmailLabel}>{system.attendant.email}</Text>
               </View>
               <View style={styles.controlToggleContainer}>
@@ -558,7 +558,7 @@ export default function SystemScreen() {
                 size={24} 
                 color={system.attendant?.has_control ? "#3B82F6" : "#F59E0B"} 
               />
-              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B', marginBottom: 0, marginLeft: 10 }]}>
+              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#000000', marginBottom: 0, marginLeft: 10 }]}>
                 System Access
               </Text>
             </View>
@@ -582,7 +582,7 @@ export default function SystemScreen() {
         {/* QUICK ALERTS (Driver/Attendant Only) */}
         {(isDriver || isAttendant) && (
           <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
-            <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Quick Alerts</Text>
+            <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>Quick Alerts</Text>
             <View style={[styles.alertGrid, isAttendant && !system.attendant?.has_control && { opacity: 0.5 }]}>
               <TouchableOpacity style={[styles.alertBtn, { backgroundColor: '#FFF7ED' }]} onPress={() => sendAlert('Delay', 'System is delayed.')}>
                 <Ionicons name="time" size={24} color="#C2410C" />
@@ -617,7 +617,7 @@ export default function SystemScreen() {
         {isParent && (
           <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff', padding: 0, overflow: 'hidden' }]}>
             <View style={styles.cardHeader}>
-              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Live Location</Text>
+              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>Live Location</Text>
               <View style={styles.liveBadge}>
                 <View style={[styles.liveDot, { backgroundColor: vanLocation ? '#10B981' : '#94A3B8' }]} />
                 <Text style={styles.liveText}>{vanLocation ? 'LIVE' : 'OFFLINE'}</Text>
@@ -672,7 +672,7 @@ export default function SystemScreen() {
               onPress={() => setIsSetPickupModalVisible(true)}
             >
               <Ionicons name="location" size={18} color={accentColor} />
-              <Text style={[styles.setPickupBtnText, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+              <Text style={[styles.setPickupBtnText, { color: theme === 'dark' ? '#fff' : '#000000' }]}>
                 {parents.find(p => p.parent_id === userId)?.pickup_lat ? 'Change My Pickup Location' : 'Set My Pickup Location'}
               </Text>
             </TouchableOpacity>
@@ -682,13 +682,13 @@ export default function SystemScreen() {
         {/* ROUTE INFO CARD (Visible if set) */}
         {system.start_lat && (
           <View style={[styles.card, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
-            <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Route Points</Text>
+            <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>Route Points</Text>
             <View style={styles.routeSummary}>
               <View style={styles.routePoint}>
                 <View style={[styles.routeDot, { backgroundColor: '#3B82F6' }]} />
                 <View>
                   <Text style={styles.routePointLabel}>START</Text>
-                  <Text style={[styles.routePointValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.start_location_name}</Text>
+                  <Text style={[styles.routePointValue, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{system.start_location_name}</Text>
                 </View>
               </View>
               <View style={styles.routeLine} />
@@ -696,7 +696,7 @@ export default function SystemScreen() {
                 <View style={[styles.routeDot, { backgroundColor: '#EF4444' }]} />
                 <View>
                   <Text style={styles.routePointLabel}>END</Text>
-                  <Text style={[styles.routePointValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{system.end_location_name}</Text>
+                  <Text style={[styles.routePointValue, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{system.end_location_name}</Text>
                 </View>
               </View>
             </View>
@@ -705,7 +705,7 @@ export default function SystemScreen() {
 
         {/* STUDENTS LIST */}
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+          <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>
             Students {isParent && ' (My Children)'}
           </Text>
           <View style={styles.countBadge}><Text style={styles.countText}>{students.length}</Text></View>
@@ -728,7 +728,7 @@ export default function SystemScreen() {
               onPress={() => handleStudentClick(s)}
             >
               <View style={styles.studentInfo}>
-                <Text style={[styles.studentName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{s.name}</Text>
+                <Text style={[styles.studentName, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{s.name}</Text>
                 <Text style={styles.studentSub}>{s.school} • Grade {s.grade}</Text>
                 <Text style={styles.studentLoc}>P: {s.pickup_location || 'N/A'}</Text>
                 <Text style={styles.studentLoc}>D: {s.dropoff_location || 'N/A'}</Text>
@@ -744,14 +744,14 @@ export default function SystemScreen() {
         {(isDriver || isAttendant) && parentsWithoutStudents.length > 0 && (
           <View style={{ marginTop: 25 }}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Parents Pending Students</Text>
+              <Text style={[styles.sectionTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>Parents Pending Students</Text>
               <View style={styles.countBadge}><Text style={styles.countText}>{parentsWithoutStudents.length}</Text></View>
             </View>
             {parentsWithoutStudents.map(p => (
               <View key={p.parent_id} style={[styles.parentCard, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
                 <MaterialCommunityIcons name="account-alert" size={24} color="#F59E0B" />
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={[styles.parentName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{p.users?.name}</Text>
+                  <Text style={[styles.parentName, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{p.users?.name}</Text>
                   <Text style={styles.parentEmail}>{p.users?.email}</Text>
                 </View>
                 <TouchableOpacity 
@@ -811,9 +811,9 @@ export default function SystemScreen() {
         <View style={styles.modalOverlay}>
           <View style={[styles.studentModalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
             <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Student Details</Text>
+              <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>Student Details</Text>
               <TouchableOpacity onPress={() => setIsStudentModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={24} color={theme === 'dark' ? '#fff' : '#1E293B'} />
+                <Ionicons name="close" size={24} color={theme === 'dark' ? '#fff' : '#000000'} />
               </TouchableOpacity>
             </View>
 
@@ -824,7 +824,7 @@ export default function SystemScreen() {
                   <View style={[styles.profileAvatar, { backgroundColor: accentColor }]}>
                     <Text style={styles.avatarText}>{selectedStudent.name.charAt(0)}</Text>
                   </View>
-                  <Text style={[styles.detailName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{selectedStudent.name}</Text>
+                  <Text style={[styles.detailName, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{selectedStudent.name}</Text>
                   <Text style={styles.detailSub}>{selectedStudent.school} • Grade {selectedStudent.grade}</Text>
                 </View>
 
@@ -834,7 +834,7 @@ export default function SystemScreen() {
                     <Text style={styles.detailLabel}>Parent Information</Text>
                     <View style={styles.detailCard}>
                       <Ionicons name="person-circle-outline" size={20} color={accentColor} />
-                      <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>
+                      <Text style={[styles.detailValue, { color: theme === 'dark' ? '#fff' : '#000000' }]}>
                         {selectedStudent.parent_name || 'Not Available'}
                       </Text>
                     </View>
@@ -912,7 +912,7 @@ export default function SystemScreen() {
       <Modal visible={isAddChildModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff' }]}>
-            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Select Children to Add</Text>
+            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>Select Children to Add</Text>
             <Text style={styles.modalSub}>Link your registered children to this system.</Text>
             
             <View style={styles.selectionList}>
@@ -936,7 +936,7 @@ export default function SystemScreen() {
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={[styles.selectionName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{child.name}</Text>
+                        <Text style={[styles.selectionName, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{child.name}</Text>
                         <Text style={styles.selectionSub}>
                           {isAlreadyInSystem ? "Already in this system" : (child.system_id ? "Currently in another system" : "Not linked to any system")}
                         </Text>
@@ -971,7 +971,7 @@ export default function SystemScreen() {
       <Modal visible={isSetPickupModalVisible} animationType="fade" transparent>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: theme === 'dark' ? '#1E293B' : '#fff', height: '70%' }]}>
-            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>Set Pickup Location</Text>
+            <Text style={[styles.modalTitle, { color: theme === 'dark' ? '#fff' : '#000000' }]}>Set Pickup Location</Text>
             <Text style={styles.modalSub}>Long-press on the map or drag the marker to set your pickup location for this van.</Text>
             
             <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden', marginVertical: 10 }}>

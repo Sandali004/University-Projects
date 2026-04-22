@@ -23,7 +23,7 @@ export default function RootLayout() {
         name="login" 
         options={{ 
           title: 'Driver Login',
-          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerShadowVisible: false,
         }} 
       />
@@ -33,7 +33,7 @@ export default function RootLayout() {
         name="parent-login" 
         options={{ 
           title: 'Parent Login',
-          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerShadowVisible: false,
         }} 
       />
@@ -43,7 +43,7 @@ export default function RootLayout() {
         name="attendant-login" 
         options={{ 
           title: 'Attendant Login',
-          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerShadowVisible: false,
         }} 
       />
@@ -56,7 +56,7 @@ export default function RootLayout() {
         options={{ 
           title: 'Registration', // Title shown in header
           headerBackTitle: 'Back',
-          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerShadowVisible: false, // Clean transition without shadow
         }} 
       />
@@ -66,7 +66,7 @@ export default function RootLayout() {
         name="driver-registration" 
         options={{ 
           title: 'Driver Setup',
-          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerShadowVisible: false,
         }} 
       />
@@ -76,7 +76,7 @@ export default function RootLayout() {
         name="parent-registration" 
         options={{ 
           title: 'Parent Setup',
-          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerShadowVisible: false,
         }} 
       />
@@ -86,7 +86,7 @@ export default function RootLayout() {
         name="attendant-registration" 
         options={{ 
           title: 'Attendant Setup',
-          headerStyle: { backgroundColor: '#F8FAFC' },
+          headerStyle: { backgroundColor: '#FFFFFF' },
           headerShadowVisible: false,
         }} 
       />

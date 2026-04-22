@@ -190,7 +190,7 @@ export default function DashboardHomeScreen() {
           <MaterialCommunityIcons name="bus-school" size={30} color={accentColor} />
         </View>
         <View style={styles.systemInfo}>
-          <Text style={[styles.systemName, { color: theme === 'dark' ? '#fff' : '#1E293B' }]}>{item.name}</Text>
+          <Text style={[styles.systemName, { color: theme === 'dark' ? '#fff' : '#000000' }]}>{item.name}</Text>
           <Text style={styles.systemSubtext}>{item.plate_number} • {item.routes?.name || 'No Route'}</Text>
           {item.driver && <Text style={styles.systemDriver}>Driver: {item.driver.name}</Text>}
         </View>
@@ -201,7 +201,7 @@ export default function DashboardHomeScreen() {
 
   if (role === 'loading') {
     return (
-      <View style={[styles.container, { justifyContent: 'center', backgroundColor: theme === 'dark' ? '#0F172A' : '#f8fafc' }]}>
+      <View style={[styles.container, { justifyContent: 'center', backgroundColor: theme === 'dark' ? '#0F172A' : '#FFFFFF' }]}>
         <ActivityIndicator size="large" color="#3B82F6" />
       </View>
     );
@@ -212,10 +212,10 @@ export default function DashboardHomeScreen() {
   const isAttendant = role === 'Attendant';
   const isDark = theme === 'dark';
   const accentColor = isParent ? '#10B981' : isAttendant ? '#8B5CF6' : '#3B82F6';
-  const bgColor = isDark ? '#0F172A' : '#F8FAFC';
+  const bgColor = isDark ? '#0F172A' : '#FFFFFF';
   const cardColor = isDark ? '#1E293B' : '#FFFFFF';
-  const textColor = isDark ? '#F1F5F9' : '#1E293B';
-  const subTextColor = isDark ? '#94A3B8' : '#64748B';
+  const textColor = isDark ? '#F1F5F9' : '#000000';
+  const subTextColor = isDark ? '#94A3B8' : '#475569';
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: bgColor }]}>
@@ -374,7 +374,7 @@ export default function DashboardHomeScreen() {
             <Text style={[styles.modalTitle, { color: textColor }]}>Join Transportation System</Text>
             <Text style={styles.modalSub}>Enter the 6-character join code provided by your driver.</Text>
             <TextInput 
-              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+              style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
               placeholder="Join Code"
               placeholderTextColor="#94A3B8"
               autoCapitalize="characters"
@@ -402,7 +402,7 @@ export default function DashboardHomeScreen() {
             <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
               <Text style={[styles.label, { color: subTextColor, marginTop: 10 }]}>Basic Info</Text>
               <TextInput 
-                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
                 placeholder="System Name"
                 placeholderTextColor="#94A3B8"
                 value={systemForm.name}
@@ -452,21 +452,21 @@ export default function DashboardHomeScreen() {
 
               <Text style={[styles.label, { color: subTextColor, marginTop: 10 }]}>Manual Overrides</Text>
               <TextInput 
-                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
                 placeholder="Plate Number"
                 placeholderTextColor="#94A3B8"
                 value={systemForm.plateNumber}
                 onChangeText={t => setSystemForm({...systemForm, plateNumber: t})}
               />
               <TextInput 
-                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
                 placeholder="Vehicle Model / Type"
                 placeholderTextColor="#94A3B8"
                 value={systemForm.vehicleType}
                 onChangeText={t => setSystemForm({...systemForm, vehicleType: t})}
               />
               <TextInput 
-                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#F8FAFC', color: textColor }]}
+                style={[styles.input, { backgroundColor: isDark ? '#334155' : '#FFFFFF', color: textColor }]}
                 placeholder="Max Seats"
                 placeholderTextColor="#94A3B8"
                 keyboardType="numeric"
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   userNameText: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
   roleLabel: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, gap: 6 },
   roleLabelText: { fontSize: 12, fontWeight: 'bold', color: '#1D4ED8', textTransform: 'uppercase' },
-  headerLogoutBtn: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#F8FAFC', justifyContent: 'center', alignItems: 'center' },
+  headerLogoutBtn: { width: 45, height: 45, borderRadius: 15, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', padding: 15, gap: 10, justifyContent: 'center', marginTop: 10 },
   gridItem: { width: '46%', aspectRatio: 1.1, backgroundColor: '#fff', borderRadius: 24, alignItems: 'center', justifyContent: 'center', gap: 8, elevation: 1, shadowColor: '#000', shadowOpacity: 0.02, shadowRadius: 10 },
   iconBox: { width: 55, height: 55, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },

@@ -209,7 +209,7 @@ export default function VehiclesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   header: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 

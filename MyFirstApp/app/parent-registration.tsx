@@ -159,7 +159,7 @@ export default function ParentRegistration() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
   chatContainer: { padding: 16, paddingBottom: 24 },
   bubble: { maxWidth: '80%', padding: 14, borderRadius: 20, marginBottom: 12 },
   botBubble: { backgroundColor: '#FFFFFF', alignSelf: 'flex-start', borderBottomLeftRadius: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },

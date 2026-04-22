@@ -101,7 +101,7 @@ export default function DriverProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC', // Light grayish-blue background
+    backgroundColor: '#FFFFFF', // Light grayish-blue background
   },
   contentContainer: {
     padding: 20,

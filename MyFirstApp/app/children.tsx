@@ -172,6 +172,21 @@ export default function MyChildrenScreen() {
                     <Ionicons name="school-outline" size={14} color="#94A3B8" />
                     <Text style={styles.locText}>Dropoff: {child.dropoff_location || 'Not set'}</Text>
                   </View>
+                  <View style={[styles.locRow, { marginTop: 5 }]}>
+                    <Ionicons name="cash-outline" size={14} color="#94A3B8" />
+                    <Text style={[styles.locText, { fontWeight: 'bold' }]}>Payment: </Text>
+                    <View style={[
+                      styles.paymentBadge, 
+                      { backgroundColor: (child.payment_status === 'Paid') ? '#DCFCE7' : '#FEE2E2' }
+                    ]}>
+                      <Text style={[
+                        styles.paymentBadgeText, 
+                        { color: (child.payment_status === 'Paid') ? '#166534' : '#991B1B' }
+                      ]}>
+                        {(child.payment_status || 'Pending').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             ))
@@ -281,6 +296,8 @@ const styles = StyleSheet.create({
   locationInfo: { gap: 8 },
   locRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   locText: { fontSize: 13, color: '#64748B' },
+  paymentBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, marginLeft: 2 },
+  paymentBadgeText: { fontSize: 10, fontWeight: 'bold' },
   empty: { alignItems: 'center', marginTop: 100, opacity: 0.5 },
   emptyText: { marginTop: 15, fontSize: 16, color: '#94A3B8' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },

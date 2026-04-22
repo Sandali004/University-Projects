@@ -214,3 +214,48 @@ export const getStudentsBySystem = async (req, res) => {
     res.status(500).json({ message: "Error fetching system students", error: error.message });
   }
 };
+
+// Update Payment Status
+export const updatePaymentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { paymentStatus, role, userId, systemId } = req.body;
+
+    if (!paymentStatus) {
+      return res.status(400).json({ message: "Payment status is required." });
+    }
+
+    // Authorization Check: Driver or authorized Attendant
+    if (role === 'Parent') {
+      return res.status(403).json({ message: "Parents cannot update payment status." });
+    }
+
+    if (role === 'Attendant') {
+      // Verify attendant has can_edit_payments permission
+      const { data: attData } = await supabase
+        .from('system_attendants')
+        .select('can_edit_payments')
+        .eq('system_id', systemId)
+        .eq('attendant_id', userId)
+        .single();
+      
+      if (!attData || !attData.can_edit_payments) {
+        return res.status(403).json({ message: "You do not have permission to edit payment status." });
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('students')
+      .update({ payment_status: paymentStatus })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({ message: "Payment status updated successfully", student: data });
+  } catch (error) {
+    console.error("[updatePaymentStatus] Error:", error);
+    res.status(500).json({ message: "Error updating payment status", error: error.message });
+  }
+};

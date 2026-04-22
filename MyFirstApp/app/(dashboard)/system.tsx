@@ -384,6 +384,66 @@ export default function SystemScreen() {
     }
   };
 
+  const handleTogglePaymentView = async () => {
+    if (!system.attendant) return;
+    try {
+      const newViewStatus = !system.attendant.can_view_payments;
+      const newEditStatus = newViewStatus ? system.attendant.can_edit_payments : false;
+      setLoading(true);
+      await api.put(`/system/attendant/${system.attendant.id}/payment-access`, { 
+        canViewPayments: newViewStatus,
+        canEditPayments: newEditStatus
+      });
+      await fetchSystemDetails();
+      Alert.alert('Success', `Payment View Access ${newViewStatus ? 'Granted' : 'Revoked'}`);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Could not update payment view access');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTogglePaymentEdit = async () => {
+    if (!system.attendant || !system.attendant.can_view_payments) return;
+    try {
+      const newEditStatus = !system.attendant.can_edit_payments;
+      setLoading(true);
+      await api.put(`/system/attendant/${system.attendant.id}/payment-access`, { 
+        canViewPayments: true,
+        canEditPayments: newEditStatus
+      });
+      await fetchSystemDetails();
+      Alert.alert('Success', `Payment Edit Access ${newEditStatus ? 'Granted' : 'Revoked'}`);
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Could not update payment edit access');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdatePaymentStatus = async (studentId: string, status: string) => {
+    try {
+      setLoading(true);
+      await api.put(`/students/${studentId}/payment`, { 
+        paymentStatus: status,
+        role,
+        userId,
+        systemId: system.id
+      });
+      Alert.alert('Success', `Payment status marked as ${status}`);
+      // Refresh system students to get updated data
+      await fetchSystemStudents(systemId as string);
+      // Also update selected student if modal is open
+      if (selectedStudent && selectedStudent.id === studentId) {
+        setSelectedStudent({ ...selectedStudent, payment_status: status });
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || 'Could not update payment status');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (loading || !system) {
     return (
       <View style={[styles.centered, { backgroundColor: theme === 'dark' ? '#0F172A' : '#FFFFFF' }]}>
@@ -539,6 +599,33 @@ export default function SystemScreen() {
                     ]}
                   >
                     <View style={[styles.toggleThumb, { marginLeft: system.attendant.can_view_activities ? 22 : 2 }]} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.toggleRow, { marginTop: 10 }]}>
+                  <Text style={styles.toggleLabel}>View Payments</Text>
+                  <TouchableOpacity 
+                    onPress={handleTogglePaymentView}
+                    style={[
+                      styles.toggleSwitch, 
+                      { backgroundColor: system.attendant.can_view_payments ? '#10B981' : '#94A3B8' }
+                    ]}
+                  >
+                    <View style={[styles.toggleThumb, { marginLeft: system.attendant.can_view_payments ? 22 : 2 }]} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={[styles.toggleRow, { marginTop: 10, opacity: system.attendant.can_view_payments ? 1 : 0.5 }]}>
+                  <Text style={styles.toggleLabel}>Change Payments</Text>
+                  <TouchableOpacity 
+                    onPress={handleTogglePaymentEdit}
+                    disabled={!system.attendant.can_view_payments}
+                    style={[
+                      styles.toggleSwitch, 
+                      { backgroundColor: system.attendant.can_edit_payments ? '#EF4444' : '#94A3B8' }
+                    ]}
+                  >
+                    <View style={[styles.toggleThumb, { marginLeft: system.attendant.can_edit_payments ? 22 : 2 }]} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -860,6 +947,43 @@ export default function SystemScreen() {
                         <MaterialCommunityIcons name="bus-stop" size={20} color="#EF4444" />
                         <Text style={[styles.actionBtnText, { color: '#EF4444' }]}>Mark Dropoff</Text>
                       </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* PAYMENT STATUS SECTION */}
+                {((isDriver || isAttendant) && (system.attendant?.can_view_payments || isDriver)) && (
+                  <View style={styles.detailSection}>
+                    <Text style={styles.detailLabel}>Payment Status</Text>
+                    <View style={[
+                      styles.paymentStatusCard, 
+                      { backgroundColor: selectedStudent.payment_status === 'Paid' ? '#DCFCE7' : '#FEE2E2' }
+                    ]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons 
+                            name={selectedStudent.payment_status === 'Paid' ? "checkmark-circle" : "alert-circle"} 
+                            size={24} 
+                            color={selectedStudent.payment_status === 'Paid' ? "#166534" : "#991B1B"} 
+                          />
+                          <Text style={[
+                            styles.paymentStatusText, 
+                            { color: selectedStudent.payment_status === 'Paid' ? "#166534" : "#991B1B" }
+                          ]}>
+                            {selectedStudent.payment_status || 'Pending'}
+                          </Text>
+                        </View>
+
+                        {/* Mark as Paid Button */}
+                        {(selectedStudent.payment_status !== 'Paid') && (isDriver || (isAttendant && system.attendant?.can_edit_payments)) && (
+                          <TouchableOpacity 
+                            style={styles.markPaidBtn}
+                            onPress={() => handleUpdatePaymentStatus(selectedStudent.id, 'Paid')}
+                          >
+                            <Text style={styles.markPaidBtnText}>Mark as Paid</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </View>
                 )}

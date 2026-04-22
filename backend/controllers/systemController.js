@@ -179,7 +179,9 @@ export const getSystemById = async (req, res) => {
             email: userData.email,
             is_present: attEntry.is_present || false,
             has_control: attEntry.has_control || false,
-            can_view_activities: attEntry.can_view_activities || false
+            can_view_activities: attEntry.can_view_activities || false,
+            can_view_payments: attEntry.can_view_payments || false,
+            can_edit_payments: attEntry.can_edit_payments || false
           };
         }
       }
@@ -729,6 +731,56 @@ export const updateAttendantActivityAccess = async (req, res) => {
   } catch (error) {
     console.error("[updateAttendantActivityAccess] Error:", error);
     res.status(500).json({ message: "Error updating activity access", error: error.message });
+  }
+};
+
+// Function: Update attendant payment access status
+export const updateAttendantPaymentAccess = async (req, res) => {
+  try {
+    const { attendantId } = req.params;
+    const { canViewPayments, canEditPayments } = req.body;
+
+    // 1. Fetch current entry
+    const { data: attEntry, error: fetchError } = await supabase
+      .from('system_attendants')
+      .select('system_id')
+      .eq('attendant_id', attendantId)
+      .single();
+
+    if (fetchError || !attEntry) {
+      return res.status(404).json({ message: "Attendant not found in any system." });
+    }
+
+    // 2. Validation: canEditPayments can only be true if canViewPayments is true
+    const finalCanEdit = canViewPayments ? canEditPayments : false;
+
+    // 3. Update status
+    const { error: updateError } = await supabase
+      .from('system_attendants')
+      .update({ 
+        can_view_payments: canViewPayments,
+        can_edit_payments: finalCanEdit
+      })
+      .eq('attendant_id', attendantId);
+
+    if (updateError) throw updateError;
+
+    // 4. Notify attendant
+    await supabase.from('notifications').insert([{
+      user_id: attendantId,
+      system_id: attEntry.system_id,
+      message: `Your payment access permissions have been updated.`,
+      type: 'payment_access_update'
+    }]);
+
+    res.status(200).json({ 
+      message: `Payment access updated successfully.`, 
+      can_view_payments: canViewPayments,
+      can_edit_payments: finalCanEdit
+    });
+  } catch (error) {
+    console.error("[updateAttendantPaymentAccess] Error:", error);
+    res.status(500).json({ message: "Error updating payment access", error: error.message });
   }
 };
 

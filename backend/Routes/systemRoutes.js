@@ -17,6 +17,7 @@ import {
   updateParentPickup,
   updateAttendantControl,
   updateAttendantActivityAccess,
+  updateAttendantPaymentAccess,
   updateSystemRouteMap,
   deleteSystem
 } from "../controllers/systemController.js";
@@ -49,5 +50,6 @@ router.get("/attendant/:attendantId", getAttendantSystems);
 router.put("/attendant/:attendantId/presence", updateAttendantPresence);
 router.put("/attendant/:attendantId/control", updateAttendantControl);
 router.put("/attendant/:attendantId/activities-access", updateAttendantActivityAccess);
+router.put("/attendant/:attendantId/payment-access", updateAttendantPaymentAccess);
 
 export default router;

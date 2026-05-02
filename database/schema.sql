@@ -1,0 +1,133 @@
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 1. Users table
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT NOT NULL CHECK (role IN ('admin', 'driver', 'parent', 'attendant')),
+    phone TEXT,
+    license_number TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 2. Routes table
+CREATE TABLE routes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 3. Vehicles table
+CREATE TABLE vehicles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    driver_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    plate_number TEXT UNIQUE NOT NULL,
+    model TEXT,
+    color TEXT,
+    max_seats INTEGER,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Transportation Systems table (formerly vans)
+-- This table stores BOTH static van information AND 
+-- the current dynamic live location of the driver.
+CREATE TABLE transportation_systems (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    driver_id UUID UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    plate_number TEXT UNIQUE NOT NULL,
+    vehicle_type TEXT,
+    max_seats INTEGER,
+    join_code TEXT UNIQUE NOT NULL,
+    current_lat DECIMAL(10, 8),
+    current_lng DECIMAL(11, 8),
+    route_id UUID REFERENCES routes(id),
+    vehicle_id UUID REFERENCES vehicles(id),
+    start_lat DECIMAL(10, 8),
+    start_lng DECIMAL(11, 8),
+    start_location_name TEXT,
+    end_lat DECIMAL(10, 8),
+    end_lng DECIMAL(11, 8),
+    end_location_name TEXT,
+    route_polyline TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Students table
+CREATE TABLE students (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
+    school TEXT,
+    grade TEXT,
+    pickup_location TEXT,
+    dropoff_location TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. System Parents join table
+CREATE TABLE system_parents (
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
+    parent_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    pickup_lat DECIMAL(10, 8),
+    pickup_lng DECIMAL(11, 8),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (system_id, parent_id)
+);
+
+-- 7. System Attendants join table
+CREATE TABLE system_attendants (
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
+    attendant_id UUID REFERENCES users(id) ON DELETE CASCADE UNIQUE,
+    is_present BOOLEAN DEFAULT FALSE,
+    has_control BOOLEAN DEFAULT FALSE,
+    can_view_activities BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    PRIMARY KEY (system_id, attendant_id)
+);
+
+-- 6. Attendance table
+CREATE TABLE attendance (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id UUID REFERENCES students(id) ON DELETE CASCADE,
+    date DATE DEFAULT CURRENT_DATE,
+    pickup BOOLEAN DEFAULT FALSE,
+    drop_off BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(student_id, date)
+);
+
+-- 9. Notifications table
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    system_id UUID REFERENCES transportation_systems(id) ON DELETE CASCADE,
+    message TEXT NOT NULL,
+    type TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+
+-- Step 1: Create the trigger function
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Step 2: Attach to transportation_systems
+DROP TRIGGER IF EXISTS set_transportation_systems_updated_at ON transportation_systems;
+CREATE TRIGGER set_transportation_systems_updated_at
+BEFORE UPDATE ON transportation_systems
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();

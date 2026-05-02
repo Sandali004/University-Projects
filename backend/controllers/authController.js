@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { supabase } from "../utils/supabase.js";
+import User from "../models/User.js";
 
 // UNIFIED LOGIN
 // This handles login for any user role (driver, parent, attendant)
@@ -16,13 +16,9 @@ export const loginUser = async (req, res) => {
     console.log(`[Backend] Unified login attempt for identifier: ${identifier}`);
 
     // 1. Find the user by email regardless of role
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", identifier)
-      .single();
+    const user = await User.findOne({ email: identifier });
 
-    if (error || !user) {
+    if (!user) {
       console.warn(`[Backend] Login failed: User not found for ${identifier}.`);
       return res.status(401).json({ message: "Invalid email or password." });
     }

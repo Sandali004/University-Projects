@@ -1,4 +1,8 @@
-import { supabase } from "../utils/supabase.js";
+import Student from "../models/Student.js";
+import TransportationSystem from "../models/TransportationSystem.js";
+import SystemAttendant from "../models/SystemAttendant.js";
+import Notification from "../models/Notification.js";
+import User from "../models/User.js";
 import { notifyStaff, notifyParents } from './systemController.js';
 
 // Add a new student
@@ -12,21 +16,15 @@ export const addStudent = async (req, res) => {
 
     let resolvedSystemId = systemId || null;
     if (joinCode && !resolvedSystemId) {
-      const { data: systemData, error: systemError } = await supabase
-        .from('transportation_systems')
-        .select('id')
-        .eq('join_code', joinCode)
-        .single();
+      const systemData = await TransportationSystem.findOne({ join_code: joinCode });
       
-      if (systemError || !systemData) {
+      if (!systemData) {
         return res.status(404).json({ message: "Invalid Van Join Code. Please check with your driver." });
       }
-      resolvedSystemId = systemData.id;
+      resolvedSystemId = systemData._id;
     }
 
-    const { data, error } = await supabase
-      .from('students')
-      .insert([{
+    const newStudent = await Student.create({
         parent_id: parentId,
         name,
         school,
@@ -34,13 +32,9 @@ export const addStudent = async (req, res) => {
         pickup_location: pickupLocation,
         dropoff_location: dropoffLocation,
         system_id: resolvedSystemId
-      }])
-      .select()
-      .single();
+    });
 
-    if (error) throw error;
-
-    res.status(201).json({ message: "Student registered successfully", student: data });
+    res.status(201).json({ message: "Student registered successfully", student: newStudent });
   } catch (error) {
     res.status(500).json({ message: "Error adding student", error: error.message });
   }
@@ -51,15 +45,9 @@ export const getStudentsByParent = async (req, res) => {
   try {
     const { parentId } = req.params;
 
-    const { data, error } = await supabase
-      .from('students')
-      .select('*')
-      .eq('parent_id', parentId)
-      .order('created_at', { ascending: false });
+    const students = await Student.find({ parent_id: parentId }).sort({ created_at: -1 });
 
-    if (error) throw error;
-
-    res.status(200).json({ students: data || [] });
+    res.status(200).json({ students: students || [] });
   } catch (error) {
     res.status(500).json({ message: "Error fetching students", error: error.message });
   }
@@ -72,24 +60,16 @@ export const updateStudent = async (req, res) => {
     const { name, school, grade, pickupLocation, dropoffLocation, joinCode, systemId, role, userId } = req.body;
 
     // 1. Get current student data to see if system_id is changing
-    const { data: currentStudent } = await supabase
-      .from('students')
-      .select('*')
-      .eq('id', id)
-      .single();
+    const currentStudent = await Student.findById(id);
 
     let resolvedSystemId = systemId;
     if (joinCode) {
-      const { data: systemData, error: systemError } = await supabase
-        .from('transportation_systems')
-        .select('id')
-        .eq('join_code', joinCode)
-        .single();
+      const systemData = await TransportationSystem.findOne({ join_code: joinCode });
       
-      if (systemError || !systemData) {
+      if (!systemData) {
         return res.status(404).json({ message: "Invalid Van Join Code." });
       }
-      resolvedSystemId = systemData.id;
+      resolvedSystemId = systemData._id;
     }
 
     const updatePayload = {
@@ -103,14 +83,7 @@ export const updateStudent = async (req, res) => {
       updatePayload.system_id = resolvedSystemId;
     }
 
-    const { data, error } = await supabase
-      .from('students')
-      .update(updatePayload)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const updatedStudent = await Student.findByIdAndUpdate(id, updatePayload, { new: true });
 
     // 2. Notifications for Removal
     if (currentStudent?.system_id && resolvedSystemId === null) {
@@ -118,28 +91,28 @@ export const updateStudent = async (req, res) => {
       const studentName = currentStudent.name || "A student";
 
       if (role === 'Attendant') {
-        const { data: parentData } = await supabase.from('users').select('name').eq('id', userId).single();
+        const parentData = await User.findById(userId);
         const attendantName = parentData?.name || "The attendant";
         // Notify Driver
         await notifyStaff(oldSystemId, `${attendantName} has removed ${studentName} from the system.`, 'student_removed', userId);
         // Notify Parent
         if (currentStudent.parent_id) {
-          await supabase.from('notifications').insert([{
+          await Notification.create({
             user_id: currentStudent.parent_id,
             system_id: oldSystemId,
             message: `Your child ${studentName} has been removed from the transportation system by the attendant.`,
             type: 'student_removed'
-          }]);
+          });
         }
       } else if (role === 'Driver') {
         // Notify Parent
         if (currentStudent.parent_id) {
-          await supabase.from('notifications').insert([{
+          await Notification.create({
             user_id: currentStudent.parent_id,
             system_id: oldSystemId,
             message: `Your child ${studentName} has been removed from the transportation system by the driver.`,
             type: 'student_removed'
-          }]);
+          });
         }
       } else if (role === 'Parent') {
         // Notify Driver + Attendants
@@ -149,12 +122,12 @@ export const updateStudent = async (req, res) => {
     // 3. Notifications for Joining
     else if (!currentStudent?.system_id && resolvedSystemId) {
       if (role === 'Parent') {
-        const studentName = data.name || "A new student";
+        const studentName = updatedStudent.name || "A new student";
         await notifyStaff(resolvedSystemId, `${studentName} has been added to your system by a parent.`, 'student_added', userId);
       }
     }
 
-    res.status(200).json({ message: "Student profile updated", student: data });
+    res.status(200).json({ message: "Student profile updated", student: updatedStudent });
   } catch (error) {
     console.error("[updateStudent] Error:", error);
     res.status(500).json({ message: "Error updating student", error: error.message });
@@ -166,12 +139,7 @@ export const deleteStudent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { error } = await supabase
-      .from('students')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    await Student.findByIdAndDelete(id);
 
     res.status(200).json({ message: "Student deleted successfully" });
   } catch (error) {
@@ -188,24 +156,16 @@ export const getStudentsBySystem = async (req, res) => {
     }
 
     // 1. Fetch students
-    const { data: students, error } = await supabase
-      .from('students')
-      .select('*')
-      .eq('system_id', systemId);
-
-    if (error) throw error;
+    const students = await Student.find({ system_id: systemId });
 
     // 2. Map parent names if possible (optional enhancement)
     const enrichedStudents = await Promise.all((students || []).map(async (s) => {
-      if (s.parent_id) {
-        const { data: parent } = await supabase
-          .from('users')
-          .select('name')
-          .eq('id', s.parent_id)
-          .single();
-        return { ...s, parent_name: parent?.name || 'Unknown' };
+      const studentObj = s.toObject(); // Need plain object to add custom properties
+      if (studentObj.parent_id) {
+        const parent = await User.findById(studentObj.parent_id);
+        return { ...studentObj, parent_name: parent?.name || 'Unknown' };
       }
-      return s;
+      return studentObj;
     }));
 
     res.status(200).json({ students: enrichedStudents });
@@ -232,38 +192,29 @@ export const updatePaymentStatus = async (req, res) => {
 
     if (role === 'Attendant') {
       // Verify attendant has can_edit_payments permission
-      const { data: attData } = await supabase
-        .from('system_attendants')
-        .select('can_edit_payments')
-        .eq('system_id', systemId)
-        .eq('attendant_id', userId)
-        .single();
+      const attData = await SystemAttendant.findOne({
+        system_id: systemId,
+        attendant_id: userId
+      });
       
       if (!attData || !attData.can_edit_payments) {
         return res.status(403).json({ message: "You do not have permission to edit payment status." });
       }
     }
 
-    const { data, error } = await supabase
-      .from('students')
-      .update({ payment_status: paymentStatus })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const updatedStudent = await Student.findByIdAndUpdate(id, { payment_status: paymentStatus }, { new: true });
 
     // Notify Parent
-    if (data.parent_id) {
-      await supabase.from('notifications').insert([{
-        user_id: data.parent_id,
+    if (updatedStudent.parent_id) {
+      await Notification.create({
+        user_id: updatedStudent.parent_id,
         system_id: systemId,
-        message: `Payment status for ${data.name} has been updated to ${paymentStatus}.`,
+        message: `Payment status for ${updatedStudent.name} has been updated to ${paymentStatus}.`,
         type: 'payment_update'
-      }]);
+      });
     }
 
-    res.status(200).json({ message: "Payment status updated successfully", student: data });
+    res.status(200).json({ message: "Payment status updated successfully", student: updatedStudent });
   } catch (error) {
     console.error("[updatePaymentStatus] Error:", error);
     res.status(500).json({ message: "Error updating payment status", error: error.message });
@@ -277,24 +228,18 @@ export const sendPaymentReminder = async (req, res) => {
     const { role, userId, systemId } = req.body;
 
     // 1. Fetch student and system details
-    const { data: student, error: sError } = await supabase
-      .from('students')
-      .select('*, transportation_systems(name)')
-      .eq('id', id)
-      .single();
+    const student = await Student.findById(id).populate('system_id', 'name');
 
-    if (sError || !student) {
+    if (!student) {
       return res.status(404).json({ message: "Student not found." });
     }
 
     // 2. Authorization Check
     if (role === 'Attendant') {
-      const { data: attData } = await supabase
-        .from('system_attendants')
-        .select('can_view_payments')
-        .eq('system_id', systemId)
-        .eq('attendant_id', userId)
-        .single();
+      const attData = await SystemAttendant.findOne({
+        system_id: systemId,
+        attendant_id: userId
+      });
       
       if (!attData || !attData.can_view_payments) {
         return res.status(403).json({ message: "You do not have permission to send payment reminders." });
@@ -305,13 +250,13 @@ export const sendPaymentReminder = async (req, res) => {
 
     // 3. Send Notification to Parent
     if (student.parent_id) {
-      const systemName = student.transportation_systems?.name || "the transportation system";
-      await supabase.from('notifications').insert([{
+      const systemName = student.system_id?.name || "the transportation system";
+      await Notification.create({
         user_id: student.parent_id,
         system_id: systemId,
         message: `Reminder: Payment for ${student.name} is pending in ${systemName}. Please complete it soon.`,
         type: 'payment_reminder'
-      }]);
+      });
     }
 
     res.status(200).json({ message: "Payment reminder sent to parent." });

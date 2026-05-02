@@ -1,9 +1,9 @@
-import { supabase } from "../utils/supabase.js";
+import TransportationSystem from "../models/TransportationSystem.js";
 
 // Controller function: updateDriverLocation
 // 1. Accepts data from req.body
 // 2. Validates required fields
-// 3. Saves or updates the driver’s latest location in Supabase
+// 3. Saves or updates the driver’s latest location in MongoDB
 // 4. Returns a success response
 export const updateDriverLocation = async (req, res) => {
   try {
@@ -23,12 +23,10 @@ export const updateDriverLocation = async (req, res) => {
       });
     }
 
-    // 3. Update in Supabase transportation_systems table
-    // Note: We update with required name field to avoid NOT NULL constraint issues
+    // 3. Update in MongoDB transportation_systems collection
     const payload = {
       current_lat: latitude, 
-      current_lng: longitude,
-      updated_at: new Date().toISOString(),
+      current_lng: longitude
     };
 
     // If driver name is provided, include it
@@ -39,18 +37,17 @@ export const updateDriverLocation = async (req, res) => {
     console.log('[LocationController] Updating transportation_systems table');
     console.log('[LocationController] Payload:', payload);
 
-    const { error, data } = await supabase
-      .from('transportation_systems')
-      .update(payload)
-      .eq('driver_id', driverId)
-      .select();
+    const updatedSystem = await TransportationSystem.findOneAndUpdate(
+        { driver_id: driverId },
+        payload,
+        { new: true }
+    );
 
-    if (error) {
-      console.error('[LocationController] Supabase error:', error.code, error.message);
-      throw error;
+    if (!updatedSystem) {
+        console.warn('[LocationController] System not found for driver:', driverId);
     }
 
-    console.log('[LocationController] Update successful, rows affected:', data?.length || 0);
+    console.log('[LocationController] Update successful');
 
     // 4. Return a successful, structured response back to the React Native app
     return res.status(200).json({ 

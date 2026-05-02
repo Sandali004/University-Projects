@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { supabase } from "../utils/supabase.js";
+import User from "../models/User.js";
 
 
 // REGISTER PARENT
@@ -20,32 +20,25 @@ export const registerParent = async (req, res) => {
       return res.status(400).json({ message: "Validation failed.", errors });
     }
 
+    const existingUser = await User.findOne({ email: email.trim().toLowerCase() });
+    if (existingUser) {
+        return res.status(409).json({ message: "This email address is already registered." });
+    }
+
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
     // Insert into 'users' table with role = 'parent'
-    const { data, error } = await supabase
-      .from("users")
-      .insert([{
+    const newUser = await User.create({
         name:          name.trim(),
         email:         email.trim().toLowerCase(),
         password_hash: passwordHash,
         role:          "parent",
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Supabase error (registerParent):", error);
-      if (error.code === "23505") {
-        return res.status(409).json({ message: "This email address is already registered." });
-      }
-      throw error;
-    }
+    });
 
     return res.status(201).json({
       message: "Parent registered successfully!",
-      user: { id: data.id, name: data.name, email: data.email, role: data.role },
+      user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role },
     });
 
   } catch (error) {
@@ -74,13 +67,9 @@ export const loginParent = async (req, res) => {
 
     // Find user by email ONLY first (to diagnose role mismatch better)
     console.log(`[Backend] Attempting login for identifier: ${identifier}`);
-    const { data: user, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("email", identifier)
-      .single();
+    const user = await User.findOne({ email: identifier });
 
-    if (error || !user) {
+    if (!user) {
       console.warn(`[Backend] Login aborted: Email not found for ${identifier}.`);
       return res.status(401).json({ message: "Invalid email or password." });
     }

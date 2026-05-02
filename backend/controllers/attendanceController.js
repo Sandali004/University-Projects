@@ -1,4 +1,7 @@
-import { supabase } from "../utils/supabase.js";
+import Attendance from "../models/Attendance.js";
+import Student from "../models/Student.js";
+import SystemAttendant from "../models/SystemAttendant.js";
+import Notification from "../models/Notification.js";
 
 // Mark student attendance (pickup or dropoff)
 export const markAttendance = async (req, res) => {
@@ -13,62 +16,47 @@ export const markAttendance = async (req, res) => {
       return res.status(400).json({ message: "Type must be 'pickup' or 'dropoff'." });
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    // Set today at 00:00:00 for strict daily matching
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
 
     // 1. Get current attendance for today
-    const { data: existing, error: fetchError } = await supabase
-      .from('attendance')
-      .select('*')
-      .eq('student_id', studentId)
-      .eq('date', today)
-      .single();
-
-    let updateData = {
+    const existing = await Attendance.findOne({
       student_id: studentId,
-      date: today,
-      [type === 'pickup' ? 'pickup' : 'drop_off']: true
-    };
+      date: { $gte: today, $lt: tomorrow }
+    });
 
     let result;
     if (existing) {
       // Update existing record
-      const { data, error } = await supabase
-        .from('attendance')
-        .update({ [type === 'pickup' ? 'pickup' : 'drop_off']: true })
-        .eq('id', existing.id)
-        .select()
-        .single();
-      if (error) throw error;
-      result = data;
+      existing[type === 'pickup' ? 'pickup' : 'drop_off'] = true;
+      result = await existing.save();
     } else {
       // Insert new record
-      const { data, error } = await supabase
-        .from('attendance')
-        .insert([updateData])
-        .select()
-        .single();
-      if (error) throw error;
-      result = data;
+      const updateData = {
+        student_id: studentId,
+        date: new Date(),
+        [type === 'pickup' ? 'pickup' : 'drop_off']: true
+      };
+      result = await Attendance.create(updateData);
     }
 
     // 2. Fetch student and parent info for notification
-    const { data: student, error: sError } = await supabase
-      .from('students')
-      .select('name, parent_id')
-      .eq('id', studentId)
-      .single();
+    const student = await Student.findById(studentId, 'name parent_id');
 
-    if (!sError && student) {
+    if (student && student.parent_id) {
       const parentId = student.parent_id;
       const activityLabel = type === 'pickup' ? 'picked up' : 'dropped off';
       
       // 3. Create notification for parent
-      await supabase.from('notifications').insert([{
+      await Notification.create({
         user_id: parentId,
         system_id: systemId || null,
         message: `Your child ${student.name} has been ${activityLabel}.`,
         type: 'attendance'
-      }]);
+      });
     }
 
     res.status(200).json({ message: `Student marked as ${type} successfully.`, attendance: result });
@@ -91,41 +79,30 @@ export const getStudentActivities = async (req, res) => {
     // --- Permission Check ---
     if (role === 'Attendant') {
       // 1. Get the system_id for this student
-      const { data: student, error: sError } = await supabase
-        .from('students')
-        .select('system_id')
-        .eq('id', studentId)
-        .single();
+      const student = await Student.findById(studentId, 'system_id');
       
-      if (sError || !student?.system_id) {
+      if (!student || !student.system_id) {
         return res.status(404).json({ message: "Student not found or not assigned to a system." });
       }
 
       // 2. Check if this attendant has activity access for this system
-      const { data: attEntry, error: aError } = await supabase
-        .from('system_attendants')
-        .select('can_view_activities')
-        .eq('system_id', student.system_id)
-        .eq('attendant_id', userId)
-        .single();
+      const attEntry = await SystemAttendant.findOne({
+        system_id: student.system_id,
+        attendant_id: userId
+      }, 'can_view_activities');
       
-      if (aError || !attEntry?.can_view_activities) {
+      if (!attEntry || !attEntry.can_view_activities) {
         return res.status(403).json({ message: "Access Denied: You do not have permission to view student activities." });
       }
     }
     // Note: Drivers and Parents (of the child) are assumed to have access for now.
     // --- End Permission Check ---
 
-    const { data, error } = await supabase
-      .from('attendance')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('date', { ascending: false })
-      .limit(7);
+    const activities = await Attendance.find({ student_id: studentId })
+        .sort({ date: -1 })
+        .limit(7);
 
-    if (error) throw error;
-
-    res.status(200).json({ activities: data || [] });
+    res.status(200).json({ activities: activities || [] });
   } catch (error) {
     console.error("[getStudentActivities] Error:", error);
     res.status(500).json({ message: "Error fetching student activities", error: error.message });

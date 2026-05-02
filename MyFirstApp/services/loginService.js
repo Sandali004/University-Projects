@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 async function loginHelper(endpoint, email, password, tokenKey, dataKey, expectedRole) {
   try {
+    console.log(`[loginService] Attempting login for ${expectedRole} with email: ${email}`);
     // Use the unified auth endpoint instead of role-specific ones
     const response = await api.post('/auth/login', { email, password });
     const { token, user, message } = response.data;

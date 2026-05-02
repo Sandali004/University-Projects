@@ -1,5 +1,12 @@
-import { supabase } from "../utils/supabase.js";
 import { v4 as uuidv4 } from "uuid";
+import TransportationSystem from "../models/TransportationSystem.js";
+import SystemParent from "../models/SystemParent.js";
+import SystemAttendant from "../models/SystemAttendant.js";
+import Student from "../models/Student.js";
+import Notification from "../models/Notification.js";
+import Route from "../models/Route.js";
+import Vehicle from "../models/Vehicle.js";
+import User from "../models/User.js";
 
 // Helper: Generate a unique 6-character join code
 const generateJoinCode = () => {
@@ -31,21 +38,15 @@ export const createSystem = async (req, res) => {
       insertData.route_id = routeId;
     }
 
-    const { data, error } = await supabase
-      .from('transportation_systems')
-      .insert([insertData])
-      .select()
-      .single();
-
-    if (error) {
-      console.log('Error from Supabase createSystem:', error);
-      if (error.code === '23505') {
-        return res.status(409).json({ message: "A system with this information (Join Code or similar) already exists." });
-      }
-      return res.status(500).json({ message: "Database Error: " + error.message });
+    try {
+        const newSystem = await TransportationSystem.create(insertData);
+        res.status(201).json({ message: "Transportation system created successfully.", system: newSystem });
+    } catch (dbError) {
+        if (dbError.code === 11000) {
+            return res.status(409).json({ message: "A system with this information (Join Code or similar) already exists." });
+        }
+        throw dbError;
     }
-
-    res.status(201).json({ message: "Transportation system created successfully.", system: data });
   } catch (error) {
     console.log('Error creating system:', error);
     res.status(500).json({ message: "Error creating system: " + error.message, error: error.message });
@@ -69,22 +70,12 @@ export const deleteSystem = async (req, res) => {
     }
 
     // 2. Clear system links for students
-    const { error: studentError } = await supabase
-      .from('students')
-      .update({ system_id: null })
-      .eq('system_id', systemId);
-
-    if (studentError) {
-      console.error("[deleteSystem] Error clearing student system links:", studentError);
-    }
+    await Student.updateMany({ system_id: systemId }, { system_id: null });
 
     // 3. Delete the system (Cascades should handle system_parents and system_attendants)
-    const { error: deleteError } = await supabase
-      .from('transportation_systems')
-      .delete()
-      .eq('id', systemId);
-
-    if (deleteError) throw deleteError;
+    await TransportationSystem.findByIdAndDelete(systemId);
+    await SystemParent.deleteMany({ system_id: systemId });
+    await SystemAttendant.deleteMany({ system_id: systemId });
 
     res.status(200).json({ message: "System deleted successfully." });
   } catch (error) {
@@ -98,15 +89,17 @@ export const getDriverSystems = async (req, res) => {
   try {
     const { driverId } = req.params;
 
-    const { data, error } = await supabase
-      .from('transportation_systems')
-      .select('*, routes(name)')
-      .eq('driver_id', driverId)
-      .order('created_at', { ascending: false });
+    const systems = await TransportationSystem.find({ driver_id: driverId })
+        .populate('route_id', 'name')
+        .sort({ created_at: -1 });
 
-    if (error) throw error;
+    const formattedSystems = systems.map(s => {
+        const obj = s.toObject();
+        obj.routes = obj.route_id; // map for frontend
+        return obj;
+    });
 
-    res.status(200).json({ systems: data || [] });
+    res.status(200).json({ systems: formattedSystems || [] });
   } catch (error) {
     res.status(500).json({ message: "Error fetching driver systems", error: error.message });
   }
@@ -117,66 +110,35 @@ export const getSystemById = async (req, res) => {
   try {
     const { systemId } = req.params;
 
-    // 1. Fetch main system info (Case-insensitive table check)
-    const { data: system, error: sError } = await supabase
-      .from('transportation_systems')
-      .select('*')
-      .eq('id', systemId)
-      .single();
+    // 1. Fetch main system info
+    const systemData = await TransportationSystem.findById(systemId)
+        .populate('route_id', 'name')
+        .populate('driver_id', 'name phone license_number')
+        .populate('vehicle_id');
 
-    if (sError || !system) {
-      console.error(`[getSystemById] Fetch Error:`, sError?.message);
+    if (!systemData) {
       return res.status(404).json({ message: "System not found." });
     }
 
-    // 2. Fetch route info separately
-    if (system.route_id) {
-      const { data: routeData } = await supabase
-        .from('routes')
-        .select('name')
-        .eq('id', system.route_id)
-        .single();
-      if (routeData) system.routes = routeData;
-    }
-
-    // 2a. Fetch Driver info
-    const { data: driverData } = await supabase
-      .from('users')
-      .select('name, phone, license_number')
-      .eq('id', system.driver_id)
-      .single();
-    if (driverData) system.driver = driverData;
-
-    // 2b. Fetch Vehicle info
-    if (system.vehicle_id) {
-      const { data: vData } = await supabase
-        .from('vehicles')
-        .select('*')
-        .eq('id', system.vehicle_id)
-        .single();
-      if (vData) system.vehicle = vData;
-    }
+    const system = systemData.toObject();
+    
+    // Map populated fields back to what frontend expects
+    if (system.route_id) system.routes = system.route_id;
+    if (system.driver_id) system.driver = system.driver_id;
+    if (system.vehicle_id) system.vehicle = system.vehicle_id;
 
     // 3. Safely Fetch attendant if exists
     try {
-      const { data: attendants } = await supabase
-        .from('system_attendants')
-        .select('*')
-        .eq('system_id', system.id);
+      const attendants = await SystemAttendant.find({ system_id: systemId }).populate('attendant_id', 'name email');
         
       if (attendants && attendants.length > 0) {
-        const attEntry = attendants[0]; // Take first attendant if multiple
-        const { data: userData } = await supabase
-          .from('users')
-          .select('name, email')
-          .eq('id', attEntry.attendant_id)
-          .single();
+        const attEntry = attendants[0].toObject();
           
-        if (userData) {
+        if (attEntry.attendant_id) {
           system.attendant = {
-            id: attEntry.attendant_id,
-            name: userData.name,
-            email: userData.email,
+            id: attEntry.attendant_id._id,
+            name: attEntry.attendant_id.name,
+            email: attEntry.attendant_id.email,
             is_present: attEntry.is_present || false,
             has_control: attEntry.has_control || false,
             can_view_activities: attEntry.can_view_activities || false,
@@ -215,31 +177,29 @@ export const joinSystem = async (req, res) => {
     }
 
     // 1. Find the system by join code
-    const { data: system, error: systemError } = await supabase
-      .from('transportation_systems')
-      .select('id')
-      .eq('join_code', joinCode.toUpperCase())
-      .single();
+    const system = await TransportationSystem.findOne({ join_code: joinCode.toUpperCase() }, 'id name');
+
+    if (!system) {
+        return res.status(404).json({ message: "Invalid join code." });
+    }
 
     // 2. Add parent to system_parents
-    const { error: joinError } = await supabase
-      .from('system_parents')
-      .insert([{ system_id: system.id, parent_id: parentId }]);
-
-    if (joinError) {
-      if (joinError.code === '23505') {
-        return res.status(409).json({ message: "You are already a member of this system." });
-      }
-      throw joinError;
+    try {
+        await SystemParent.create({ system_id: system._id, parent_id: parentId });
+    } catch (joinError) {
+        if (joinError.code === 11000) {
+            return res.status(409).json({ message: "You are already a member of this system." });
+        }
+        throw joinError;
     }
 
     // 3. Notify Staff
-    const { data: userData } = await supabase.from('users').select('name').eq('id', parentId).single();
+    const userData = await User.findById(parentId, 'name');
     if (userData) {
-      await notifyStaff(system.id, `${userData.name} has joined the system "${system.name}" as a parent.`, 'parent_joined');
+      await notifyStaff(system._id, `${userData.name} has joined the system "${system.name}" as a parent.`, 'parent_joined');
     }
 
-    res.status(200).json({ message: "Successfully joined the transportation system.", systemId: system.id });
+    res.status(200).json({ message: "Successfully joined the transportation system.", systemId: system._id });
   } catch (error) {
     res.status(500).json({ message: "Error joining system", error: error.message });
   }
@@ -255,38 +215,29 @@ export const joinSystemAttendant = async (req, res) => {
     }
 
     // 1. Find the system by join code
-    const { data: system, error: systemError } = await supabase
-      .from('transportation_systems')
-      .select('id, name')
-      .eq('join_code', joinCode.toUpperCase())
-      .single();
+    const system = await TransportationSystem.findOne({ join_code: joinCode.toUpperCase() }, 'id name');
 
-    if (systemError || !system) {
+    if (!system) {
       return res.status(404).json({ message: "Invalid join code. System not found." });
     }
 
     // 2. Add attendant to system_attendants
     // Upsert or insert (assuming one system per attendant)
-    const { error: joinError } = await supabase
-      .from('system_attendants')
-      .upsert([{ system_id: system.id, attendant_id: attendantId, is_present: true }], { onConflict: 'attendant_id' });
-
-    if (joinError) throw joinError;
+    await SystemAttendant.findOneAndUpdate(
+        { attendant_id: attendantId },
+        { system_id: system._id, is_present: true },
+        { upsert: true, new: true }
+    );
 
     // 3. Fetch attendant name for notifications
-    const { data: userData } = await supabase
-      .from('users')
-      .select('name')
-      .eq('id', attendantId)
-      .single();
-    
+    const userData = await User.findById(attendantId, 'name');
     const attendantName = userData?.name || "A new attendant";
 
     // 4. Notify Driver and Parents
-    await notifyStaff(system.id, `${attendantName} has joined the system "${system.name}" as an attendant.`, 'attendant_joined');
-    await notifyParents(system.id, `${attendantName} has joined the vehicle staff for system "${system.name}".`, 'attendant_joined');
+    await notifyStaff(system._id, `${attendantName} has joined the system "${system.name}" as an attendant.`, 'attendant_joined');
+    await notifyParents(system._id, `${attendantName} has joined the vehicle staff for system "${system.name}".`, 'attendant_joined');
 
-    res.status(200).json({ message: "Successfully registered as attendant for this system.", systemId: system.id });
+    res.status(200).json({ message: "Successfully registered as attendant for this system.", systemId: system._id });
   } catch (error) {
     console.error("Error joining system as attendant:", error);
     res.status(500).json({ message: "Error joining system", error: error.message });
@@ -298,14 +249,16 @@ export const getSystemParents = async (req, res) => {
   try {
     const { systemId } = req.params;
 
-    const { data, error } = await supabase
-      .from('system_parents')
-      .select('parent_id, pickup_lat, pickup_lng, users(name, email)')
-      .eq('system_id', systemId);
+    const parentsData = await SystemParent.find({ system_id: systemId }).populate('parent_id', 'name email');
 
-    if (error) throw error;
+    const parents = parentsData.map(p => {
+        const obj = p.toObject();
+        obj.users = obj.parent_id;
+        obj.parent_id = obj.parent_id?._id;
+        return obj;
+    });
 
-    res.status(200).json({ parents: data });
+    res.status(200).json({ parents });
   } catch (error) {
     res.status(500).json({ message: "Error fetching parents", error: error.message });
   }
@@ -318,45 +271,39 @@ export const removeParent = async (req, res) => {
     const { role, userId } = req.query; // Using query for DELETE or body if caller uses PUT
 
     // 1. Get Parent Name and System Name before removal
-    const { data: parentData } = await supabase.from('users').select('name').eq('id', parentId).single();
-    const { data: systemData } = await supabase.from('transportation_systems').select('name').eq('id', systemId).single();
+    const parentData = await User.findById(parentId, 'name');
+    const systemData = await TransportationSystem.findById(systemId, 'name');
     
     const parentName = parentData?.name || "A parent";
     const systemName = systemData?.name || "the system";
 
-    const { error } = await supabase
-      .from('system_parents')
-      .delete()
-      .eq('system_id', systemId)
-      .eq('parent_id', parentId);
-
-    if (error) throw error;
+    await SystemParent.findOneAndDelete({ system_id: systemId, parent_id: parentId });
 
     // 2. Notifications
     if (role === 'Attendant') {
-      const { data: attData } = await supabase.from('users').select('name').eq('id', userId).single();
+      const attData = await User.findById(userId, 'name');
       const attendantName = attData?.name || "An attendant";
       
       // Notify Driver
       await notifyStaff(systemId, `${attendantName} has removed ${parentName} from the system.`, 'parent_removed', userId);
       // Notify Parent
-      await supabase.from('notifications').insert([{
+      await Notification.create({
         user_id: parentId,
         system_id: systemId,
         message: `You have been removed from the transportation system "${systemName}" by the attendant.`,
         type: 'parent_removed'
-      }]);
+      });
     } else if (role === 'Parent' || parentId === userId) {
       // Parent leaving
       await notifyStaff(systemId, `${parentName} has left the system "${systemName}".`, 'parent_left');
     } else if (role === 'Driver') {
       // Driver removing parent
-      await supabase.from('notifications').insert([{
+      await Notification.create({
         user_id: parentId,
         system_id: systemId,
         message: `You have been removed from the transportation system "${systemName}" by the driver.`,
         type: 'parent_removed'
-      }]);
+      });
     }
 
     res.status(200).json({ message: "Parent removed from system successfully." });
@@ -368,9 +315,8 @@ export const removeParent = async (req, res) => {
 // Function: Get all available routes
 export const getRoutes = async (req, res) => {
   try {
-    const { data, error } = await supabase.from('routes').select('*');
-    if (error) throw error;
-    res.status(200).json({ routes: data });
+    const routes = await Route.find();
+    res.status(200).json({ routes });
   } catch (error) {
     res.status(500).json({ message: "Error fetching routes", error: error.message });
   }
@@ -380,24 +326,26 @@ export const getRoutes = async (req, res) => {
 export const getParentSystems = async (req, res) => {
   try {
     const { parentId } = req.params;
-    const { data, error } = await supabase
-      .from('system_parents')
-      .select('system_id, transportation_systems(*, routes:route_id(name))')
-      .eq('parent_id', parentId);
+    const parentSystemsData = await SystemParent.find({ parent_id: parentId })
+        .populate({
+            path: 'system_id',
+            populate: { path: 'route_id', select: 'name' }
+        });
 
-    if (error) throw error;
-
-    const systems = data?.map(item => item.transportation_systems).filter(s => !!s) || [];
+    const systems = [];
     
     // Fetch driver info for each system (simplified for list view)
-    for (const system of systems) {
-      const { data: driverData } = await supabase
-        .from('users')
-        .select('name, email')
-        .eq('id', system.driver_id)
-        .single();
-        
-      if (driverData) system.driver = driverData;
+    for (const item of parentSystemsData) {
+      if (item.system_id) {
+          const system = item.system_id.toObject();
+          system.routes = system.route_id; // map for frontend
+          
+          if (system.driver_id) {
+            const driverData = await User.findById(system.driver_id, 'name email');
+            if (driverData) system.driver = driverData;
+          }
+          systems.push(system);
+      }
     }
 
     res.status(200).json({ systems });
@@ -410,30 +358,26 @@ export const getParentSystems = async (req, res) => {
 export const getAttendantSystems = async (req, res) => {
   try {
     const { attendantId } = req.params;
-    const { data, error } = await supabase
-      .from('system_attendants')
-      .select('system_id, is_present, transportation_systems(*, routes(name))')
-      .eq('attendant_id', attendantId);
+    const attendantSystemsData = await SystemAttendant.find({ attendant_id: attendantId })
+        .populate({
+            path: 'system_id',
+            populate: { path: 'route_id', select: 'name' }
+        });
 
-    if (error) throw error;
-
-    const systems = data?.map(item => {
-      if (item.transportation_systems) {
-        item.transportation_systems.is_present = item.is_present;
-        return item.transportation_systems;
-      }
-      return null;
-    }).filter(s => !!s) || [];
+    const systems = [];
 
     // Fetch driver info for each
-    for (const system of systems) {
-      if (system.driver_id) {
-        const { data: driverData } = await supabase
-          .from('users')
-          .select('name, email')
-          .eq('id', system.driver_id)
-          .single();
-        if (driverData) system.driver = driverData;
+    for (const item of attendantSystemsData) {
+      if (item.system_id) {
+        const system = item.system_id.toObject();
+        system.is_present = item.is_present;
+        system.routes = system.route_id;
+        
+        if (system.driver_id) {
+            const driverData = await User.findById(system.driver_id, 'name email');
+            if (driverData) system.driver = driverData;
+        }
+        systems.push(system);
       }
     }
 
@@ -450,40 +394,27 @@ export const updateAttendantPresence = async (req, res) => {
     const { isPresent } = req.body;
 
     // 1. Update presence in database
-    const { data: attendantRecord, error: updateError } = await supabase
-      .from('system_attendants')
-      .update({ is_present: isPresent })
-      .eq('attendant_id', attendantId)
-      .select('system_id')
-      .single();
+    const attendantRecord = await SystemAttendant.findOneAndUpdate(
+        { attendant_id: attendantId },
+        { is_present: isPresent },
+        { new: true }
+    );
 
-    if (updateError) throw updateError;
+    if (!attendantRecord) {
+        return res.status(404).json({ message: "Attendant not found." });
+    }
 
     const systemId = attendantRecord.system_id;
 
     // 2. Get attendant name
-    const { data: userData } = await supabase
-      .from('users')
-      .select('name')
-      .eq('id', attendantId)
-      .single();
-    
+    const userData = await User.findById(attendantId, 'name');
     const attendantName = userData?.name || "The attendant";
 
     // 3. Get all parents linked to this system
-    const { data: parents, error: pError } = await supabase
-      .from('system_parents')
-      .select('parent_id')
-      .eq('system_id', systemId);
-
-    if (pError) throw pError;
+    const parents = await SystemParent.find({ system_id: systemId }, 'parent_id');
 
     // 4. Create notifications for parents and driver
-    const { data: systemInfo } = await supabase
-      .from('transportation_systems')
-      .select('driver_id')
-      .eq('id', systemId)
-      .single();
+    const systemInfo = await TransportationSystem.findById(systemId, 'driver_id');
 
     const notifications = [];
     
@@ -508,13 +439,7 @@ export const updateAttendantPresence = async (req, res) => {
     }
 
     if (notifications.length > 0) {
-      const { error: nError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (nError) {
-        console.error("[updateAttendantPresence] Notification error:", nError);
-      }
+        await Notification.insertMany(notifications);
     }
 
     res.status(200).json({ message: "Presence status updated and notifications sent.", is_present: isPresent });
@@ -530,16 +455,16 @@ export const updateSystemRoute = async (req, res) => {
     const { systemId } = req.params;
     const { routeId } = req.body;
 
-    const { data, error } = await supabase
-      .from('transportation_systems')
-      .update({ route_id: routeId })
-      .eq('id', systemId)
-      .select('*, routes(name)')
-      .single();
+    const system = await TransportationSystem.findByIdAndUpdate(
+        systemId,
+        { route_id: routeId },
+        { new: true }
+    ).populate('route_id', 'name');
 
-    if (error) throw error;
+    const formattedSystem = system.toObject();
+    formattedSystem.routes = formattedSystem.route_id;
 
-    res.status(200).json({ message: "Route updated successfully.", system: data });
+    res.status(200).json({ message: "Route updated successfully.", system: formattedSystem });
   } catch (error) {
     res.status(500).json({ message: "Error updating route", error: error.message });
   }
@@ -554,12 +479,7 @@ export const startTrackingNotify = async (req, res) => {
     const { driverName } = req.body;
 
     // Get all parents linked to this system
-    const { data: parents, error: pError } = await supabase
-      .from('system_parents')
-      .select('parent_id')
-      .eq('system_id', systemId);
-
-    if (pError) throw pError;
+    const parents = await SystemParent.find({ system_id: systemId }, 'parent_id');
 
     if (parents && parents.length > 0) {
       const notifications = parents.map(p => ({
@@ -569,11 +489,7 @@ export const startTrackingNotify = async (req, res) => {
         type: 'tracking_start'
       }));
 
-      const { error: nError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (nError) throw nError;
+      await Notification.insertMany(notifications);
     }
 
     res.status(200).json({ message: "Parents notified of tracking start." });
@@ -590,12 +506,7 @@ export const stopTrackingNotify = async (req, res) => {
   try {
     const { systemId } = req.params;
 
-    const { data: parents, error: pError } = await supabase
-      .from('system_parents')
-      .select('parent_id')
-      .eq('system_id', systemId);
-
-    if (pError) throw pError;
+    const parents = await SystemParent.find({ system_id: systemId }, 'parent_id');
 
     if (parents && parents.length > 0) {
       const notifications = parents.map(p => ({
@@ -605,11 +516,7 @@ export const stopTrackingNotify = async (req, res) => {
         type: 'tracking_stop'
       }));
 
-      const { error: nError } = await supabase
-        .from('notifications')
-        .insert(notifications);
-
-      if (nError) throw nError;
+      await Notification.insertMany(notifications);
     }
 
     res.status(200).json({ message: "Parents notified of tracking stop." });
@@ -618,6 +525,7 @@ export const stopTrackingNotify = async (req, res) => {
     res.status(500).json({ message: "Internal Server Error notifying stop." });
   }
 };
+
 // Function: Update parent's pickup location for a system
 export const updateParentPickup = async (req, res) => {
   try {
@@ -628,13 +536,10 @@ export const updateParentPickup = async (req, res) => {
       return res.status(400).json({ message: "Latitude and Longitude are required." });
     }
 
-    const { error } = await supabase
-      .from('system_parents')
-      .update({ pickup_lat: lat, pickup_lng: lng })
-      .eq('system_id', systemId)
-      .eq('parent_id', parentId);
-
-    if (error) throw error;
+    await SystemParent.findOneAndUpdate(
+        { system_id: systemId, parent_id: parentId },
+        { pickup_lat: lat, pickup_lng: lng }
+    );
 
     res.status(200).json({ message: "Pickup location updated successfully." });
   } catch (error) {
@@ -650,13 +555,9 @@ export const updateAttendantControl = async (req, res) => {
     const { hasControl } = req.body;
 
     // 1. Fetch current presence status
-    const { data: attEntry, error: fetchError } = await supabase
-      .from('system_attendants')
-      .select('is_present, system_id')
-      .eq('attendant_id', attendantId)
-      .single();
+    const attEntry = await SystemAttendant.findOne({ attendant_id: attendantId }, 'is_present system_id');
 
-    if (fetchError || !attEntry) {
+    if (!attEntry) {
       return res.status(404).json({ message: "Attendant not found in any system." });
     }
 
@@ -666,20 +567,18 @@ export const updateAttendantControl = async (req, res) => {
     }
 
     // 3. Update control status
-    const { error: updateError } = await supabase
-      .from('system_attendants')
-      .update({ has_control: hasControl })
-      .eq('attendant_id', attendantId);
-
-    if (updateError) throw updateError;
+    await SystemAttendant.findOneAndUpdate(
+        { attendant_id: attendantId },
+        { has_control: hasControl }
+    );
 
     // 4. Notify attendant
-    await supabase.from('notifications').insert([{
+    await Notification.create({
       user_id: attendantId,
       system_id: attEntry.system_id,
       message: `You have been ${hasControl ? 'GRANTED' : 'REVOKED'} full control of the system.`,
       type: 'control_update'
-    }]);
+    });
 
     res.status(200).json({ 
       message: `Control ${hasControl ? 'granted' : 'revoked'} successfully.`, 
@@ -698,31 +597,25 @@ export const updateAttendantActivityAccess = async (req, res) => {
     const { canViewActivities } = req.body;
 
     // 1. Fetch current entry
-    const { data: attEntry, error: fetchError } = await supabase
-      .from('system_attendants')
-      .select('system_id')
-      .eq('attendant_id', attendantId)
-      .single();
+    const attEntry = await SystemAttendant.findOne({ attendant_id: attendantId }, 'system_id');
 
-    if (fetchError || !attEntry) {
+    if (!attEntry) {
       return res.status(404).json({ message: "Attendant not found in any system." });
     }
 
     // 2. Update status
-    const { error: updateError } = await supabase
-      .from('system_attendants')
-      .update({ can_view_activities: canViewActivities })
-      .eq('attendant_id', attendantId);
-
-    if (updateError) throw updateError;
+    await SystemAttendant.findOneAndUpdate(
+        { attendant_id: attendantId },
+        { can_view_activities: canViewActivities }
+    );
 
     // 3. Notify attendant
-    await supabase.from('notifications').insert([{
+    await Notification.create({
       user_id: attendantId,
       system_id: attEntry.system_id,
       message: `You have been ${canViewActivities ? 'GRANTED' : 'REVOKED'} permission to view student activities.`,
       type: 'activity_access_update'
-    }]);
+    });
 
     res.status(200).json({ 
       message: `Activity access ${canViewActivities ? 'granted' : 'revoked'} successfully.`, 
@@ -741,13 +634,9 @@ export const updateAttendantPaymentAccess = async (req, res) => {
     const { canViewPayments, canEditPayments } = req.body;
 
     // 1. Fetch current entry
-    const { data: attEntry, error: fetchError } = await supabase
-      .from('system_attendants')
-      .select('system_id')
-      .eq('attendant_id', attendantId)
-      .single();
+    const attEntry = await SystemAttendant.findOne({ attendant_id: attendantId }, 'system_id');
 
-    if (fetchError || !attEntry) {
+    if (!attEntry) {
       return res.status(404).json({ message: "Attendant not found in any system." });
     }
 
@@ -755,23 +644,21 @@ export const updateAttendantPaymentAccess = async (req, res) => {
     const finalCanEdit = canViewPayments ? canEditPayments : false;
 
     // 3. Update status
-    const { error: updateError } = await supabase
-      .from('system_attendants')
-      .update({ 
-        can_view_payments: canViewPayments,
-        can_edit_payments: finalCanEdit
-      })
-      .eq('attendant_id', attendantId);
-
-    if (updateError) throw updateError;
+    await SystemAttendant.findOneAndUpdate(
+        { attendant_id: attendantId },
+        { 
+            can_view_payments: canViewPayments,
+            can_edit_payments: finalCanEdit
+        }
+    );
 
     // 4. Notify attendant
-    await supabase.from('notifications').insert([{
+    await Notification.create({
       user_id: attendantId,
       system_id: attEntry.system_id,
       message: `Your payment access permissions have been updated.`,
       type: 'payment_access_update'
-    }]);
+    });
 
     res.status(200).json({ 
       message: `Payment access updated successfully.`, 
@@ -802,33 +689,23 @@ export const updateSystemRouteMap = async (req, res) => {
     // 1. Create a formal route in 'routes' table
     const finalRouteName = routeName || `${startName || 'Start'} to ${endName || 'End'}`;
     
-    const { data: routeData, error: routeError } = await supabase
-      .from('routes')
-      .insert([{ name: finalRouteName }])
-      .select()
-      .single();
-
-    if (routeError) throw routeError;
+    const routeData = await Route.create({ name: finalRouteName });
 
     // 2. Update transportation system with coordinates AND the new route_id
-    const { data: systemData, error: systemError } = await supabase
-      .from('transportation_systems')
-      .update({
-        start_lat: startLat,
-        start_lng: startLng,
-        start_location_name: startName,
-        end_lat: endLat,
-        end_lng: endLng,
-        end_location_name: endName,
-        route_polyline: routePolyline,
-        route_id: routeData.id, // Formalizing the link
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', systemId)
-      .select()
-      .single();
-
-    if (systemError) throw systemError;
+    const systemData = await TransportationSystem.findByIdAndUpdate(
+        systemId,
+        {
+            start_lat: startLat,
+            start_lng: startLng,
+            start_location_name: startName,
+            end_lat: endLat,
+            end_lng: endLng,
+            end_location_name: endName,
+            route_polyline: routePolyline,
+            route_id: routeData._id, // Formalizing the link
+        },
+        { new: true }
+    );
 
     // 3. Notify parents of the route change
     await notifyParents(systemId, `The route for system "${systemData.name}" has been updated to "${finalRouteName}".`, 'route_updated');
@@ -839,27 +716,21 @@ export const updateSystemRouteMap = async (req, res) => {
     res.status(500).json({ message: "Error updating route map", error: error.message });
   }
 };
+
 // HELPER: Notify all staff (Driver + Attendants) of a system
 export const notifyStaff = async (systemId, message, type = 'system_update', excludeId = null) => {
   try {
     // 1. Get Driver
-    const { data: system } = await supabase
-      .from('transportation_systems')
-      .select('driver_id')
-      .eq('id', systemId)
-      .single();
+    const system = await TransportationSystem.findById(systemId, 'driver_id');
 
     // 2. Get Attendants
-    const { data: attendants } = await supabase
-      .from('system_attendants')
-      .select('attendant_id')
-      .eq('system_id', systemId);
+    const attendants = await SystemAttendant.find({ system_id: systemId }, 'attendant_id');
 
     const recipients = [];
-    if (system?.driver_id && system.driver_id !== excludeId) recipients.push(system.driver_id);
+    if (system?.driver_id && system.driver_id.toString() !== excludeId) recipients.push(system.driver_id);
     if (attendants) {
       attendants.forEach(a => {
-        if (a.attendant_id !== excludeId) recipients.push(a.attendant_id);
+        if (a.attendant_id.toString() !== excludeId) recipients.push(a.attendant_id);
       });
     }
 
@@ -870,7 +741,7 @@ export const notifyStaff = async (systemId, message, type = 'system_update', exc
         message,
         type
       }));
-      await supabase.from('notifications').insert(notifications);
+      await Notification.insertMany(notifications);
     }
   } catch (err) {
     console.error("[notifyStaff] Error:", err.message);
@@ -880,14 +751,11 @@ export const notifyStaff = async (systemId, message, type = 'system_update', exc
 // HELPER: Notify all parents of a system
 export const notifyParents = async (systemId, message, type = 'system_update', excludeId = null) => {
   try {
-    const { data: parents } = await supabase
-      .from('system_parents')
-      .select('parent_id')
-      .eq('system_id', systemId);
+    const parents = await SystemParent.find({ system_id: systemId }, 'parent_id');
 
     if (parents && parents.length > 0) {
       const notifications = parents
-        .filter(p => p.parent_id !== excludeId)
+        .filter(p => p.parent_id.toString() !== excludeId)
         .map(p => ({
           user_id: p.parent_id,
           system_id: systemId,
@@ -896,7 +764,7 @@ export const notifyParents = async (systemId, message, type = 'system_update', e
         }));
       
       if (notifications.length > 0) {
-        await supabase.from('notifications').insert(notifications);
+        await Notification.insertMany(notifications);
       }
     }
   } catch (err) {

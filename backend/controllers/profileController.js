@@ -1,4 +1,4 @@
-import { supabase } from "../utils/supabase.js";
+import User from "../models/User.js";
 
 // Fetch user profile based on ID and Role
 export const getProfile = async (req, res) => {
@@ -6,17 +6,13 @@ export const getProfile = async (req, res) => {
     const { userId } = req.query;
     if (!userId) return res.status(400).json({ message: "User ID is required" });
 
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    const user = await User.findById(userId);
 
-    if (error || !data) {
+    if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    res.status(200).json({ profile: data });
+    res.status(200).json({ profile: user });
   } catch (error) {
     res.status(500).json({ message: "Error fetching profile", error: error.message });
   }
@@ -40,16 +36,13 @@ export const updateProfile = async (req, res) => {
     // Remove undefined or null fields
     Object.keys(updateData).forEach(key => (updateData[key] === undefined || updateData[key] === null) && delete updateData[key]);
 
-    const { data, error } = await supabase
-      .from("users")
-      .update(updateData)
-      .eq("id", userId)
-      .select()
-      .single();
+    const updatedUser = await User.findByIdAndUpdate(userId, updateData, { new: true });
 
-    if (error) throw error;
+    if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+    }
 
-    res.status(200).json({ message: "Profile updated successfully", profile: data });
+    res.status(200).json({ message: "Profile updated successfully", profile: updatedUser });
   } catch (error) {
     res.status(500).json({ message: "Error updating profile", error: error.message });
   }
@@ -61,12 +54,7 @@ export const deleteAccount = async (req, res) => {
     const { userId } = req.params;
     if (!userId) return res.status(400).json({ message: "User ID is required" });
 
-    const { error } = await supabase
-      .from("users")
-      .delete()
-      .eq("id", userId);
-
-    if (error) throw error;
+    await User.findByIdAndDelete(userId);
 
     res.status(200).json({ message: "Account successfully deleted" });
   } catch (error) {

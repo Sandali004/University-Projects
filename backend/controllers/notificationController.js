@@ -1,5 +1,4 @@
-import { supabase } from "../utils/supabase.js";
-
+import Notification from "../models/Notification.js";
 
 export const getNotifications = async (req, res) => {
   try {
@@ -9,29 +8,26 @@ export const getNotifications = async (req, res) => {
       return res.status(400).json({ message: "User ID is required." });
     }
 
-
-    const { error: deleteError } = await supabase
-      .from('notifications')
-      .delete()
-      .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
-
-    if (deleteError) {
-      console.error("[NotificationController] Cleanup error:", deleteError.message);
-      // We don't fail the request if cleanup fails, just log it.
+    try {
+        await Notification.deleteMany({
+            created_at: { $lt: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        });
+    } catch (deleteError) {
+        console.error("[NotificationController] Cleanup error:", deleteError.message);
     }
 
     // 2. Fetch the remaining notifications for the user with system name join
-    const { data: notifications, error: fetchError } = await supabase
-      .from('notifications')
-      .select('*, transportation_systems(name)')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+    const notifications = await Notification.find({ user_id: userId })
+        .populate('system_id', 'name')
+        .sort({ created_at: -1 });
 
-    if (fetchError) {
-      throw fetchError;
-    }
+    const formattedNotifications = notifications.map(n => {
+        const obj = n.toObject();
+        obj.transportation_systems = obj.system_id;
+        return obj;
+    });
 
-    return res.status(200).json({ notifications: notifications || [] });
+    return res.status(200).json({ notifications: formattedNotifications || [] });
   } catch (error) {
     console.error("[NotificationController] Fetch error:", error);
     return res.status(500).json({ message: "Failed to fetch notifications.", error: error.message });
@@ -47,14 +43,7 @@ export const deleteNotification = async (req, res) => {
       return res.status(400).json({ message: "Notification ID is required." });
     }
 
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      throw error;
-    }
+    await Notification.findByIdAndDelete(id);
 
     return res.status(200).json({ message: "Notification deleted successfully." });
   } catch (error) {

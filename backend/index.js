@@ -1,6 +1,10 @@
 import 'dotenv/config'; // Load env variables immediately (important for ES Modules)
 import cors from "cors";
 import express from "express";
+import { connectDB } from './config/db.js';
+
+// Connect to MongoDB
+connectDB();
 
 // Import route handlers
 import driverRoutes    from "./Routes/driverRoutes.js";
